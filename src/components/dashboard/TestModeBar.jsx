@@ -1,0 +1,319 @@
+/**
+ * components/dashboard/TestModeBar.jsx
+ * 역할: 테스트 모드 전용 제어 바
+ *       - 시작 / 일시중지 / 정지 재생 제어
+ *       - 프로젝트 데이터 ↔ 직접 업로드 소스 전환
+ *       - 직접 업로드 모드: 이미지/영상 대량 첨부
+ */
+
+import { useCallback, useRef, useState } from 'react'
+import {
+  FlaskConical, Upload, Trash2, FolderOpen, Check, Loader2,
+  Database, HardDrive, Play, Pause, Square, Box, ScanSearch,
+} from 'lucide-react'
+import useSessionStore from '../../store/sessionStore.js'
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
+export default function TestModeBar() {
+  const testSource = useSessionStore((s) => s.testSource)
+  const setTestSource = useSessionStore((s) => s.setTestSource)
+  const testPlayState = useSessionStore((s) => s.testPlayState)
+  const setTestPlayState = useSessionStore((s) => s.setTestPlayState)
+  const testDetectionMode = useSessionStore((s) => s.testDetectionMode)
+  const setTestDetectionMode = useSessionStore((s) => s.setTestDetectionMode)
+  const fileInputRef = useRef(null)
+
+  const [uploadedCount, setUploadedCount] = useState(0)
+  const [uploading, setUploading] = useState(false)
+  const [switchingSource, setSwitchingSource] = useState(false)
+
+  const isUploadMode = testSource === 'upload'
+  const isStopped = testPlayState === 'stopped'
+  const isPlaying = testPlayState === 'playing'
+  const isPaused = testPlayState === 'paused'
+
+  // 재생 제어
+  const handleStart = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' })
+      if (res.ok) setTestPlayState('playing')
+    } catch (err) {
+      console.warn('[TestMode] 시작 실패:', err)
+    }
+  }, [setTestPlayState])
+
+  const handlePause = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/pause`, { method: 'POST' })
+      if (res.ok) setTestPlayState('paused')
+    } catch (err) {
+      console.warn('[TestMode] 일시중지 실패:', err)
+    }
+  }, [setTestPlayState])
+
+  const handleResume = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/resume`, { method: 'POST' })
+      if (res.ok) setTestPlayState('playing')
+    } catch (err) {
+      console.warn('[TestMode] 재개 실패:', err)
+    }
+  }, [setTestPlayState])
+
+  const handleStop = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST' })
+      if (res.ok) setTestPlayState('stopped')
+    } catch (err) {
+      console.warn('[TestMode] 정지 실패:', err)
+    }
+  }, [setTestPlayState])
+
+  // 감지 모드 전환 (백엔드 동기화)
+  const switchDetectionMode = useCallback(async (newMode) => {
+    if (newMode === testDetectionMode) return
+    try {
+      await fetch(`${API_BASE}/api/v1/stream/test/detection-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode }),
+      })
+      setTestDetectionMode(newMode)
+    } catch (err) {
+      console.warn('[TestMode] 감지 모드 전환 실패:', err)
+    }
+  }, [testDetectionMode, setTestDetectionMode])
+
+  // 소스 전환
+  const switchTo = useCallback(async (newSource) => {
+    if (newSource === testSource || switchingSource) return
+    setSwitchingSource(true)
+    try {
+      await fetch(`${API_BASE}/api/v1/stream/test/source`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: newSource }),
+      })
+      setTestSource(newSource)
+    } catch (err) {
+      console.warn('[TestMode] 소스 전환 실패:', err)
+    } finally {
+      setSwitchingSource(false)
+    }
+  }, [testSource, setTestSource, switchingSource])
+
+  // 파일 업로드
+  const handleFileChange = useCallback(async (e) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploading(true)
+    const formData = new FormData()
+    for (let i = 0; i < files.length; i++) formData.append('files', files[i])
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setUploadedCount(data.total_uploaded || 0)
+      }
+    } catch (err) {
+      console.warn('[TestMode] 업로드 실패:', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }, [])
+
+  const handleClearUploads = useCallback(async () => {
+    try {
+      await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'DELETE' })
+      setUploadedCount(0)
+    } catch (err) {
+      console.warn('[TestMode] 삭제 실패:', err)
+    }
+  }, [])
+
+  return (
+    <div className="absolute top-[56px] left-0 right-0 z-20 flex items-center justify-center px-5 py-2 pointer-events-none">
+      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-neutral-900/80 border border-red-500/40 backdrop-blur-sm shadow-lg pointer-events-auto">
+
+        {/* TEST MODE 라벨 */}
+        <div className="flex items-center gap-2">
+          <div className="p-1 bg-red-500 rounded-md">
+            <FlaskConical size={12} className="text-white" />
+          </div>
+          <span className="text-[11px] font-bold tracking-wider text-red-400 uppercase">
+            Test Mode
+          </span>
+        </div>
+
+        <div className="w-px h-6 bg-neutral-700" />
+
+        {/* 재생 제어 버튼 */}
+        <div className="flex items-center gap-1">
+          {/* 시작 / 재개 */}
+          {(isStopped || isPaused) && (
+            <button
+              type="button"
+              onClick={isStopped ? handleStart : handleResume}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600/20 border border-green-500/40 hover:bg-green-600/30 text-green-400 hover:text-green-300 transition text-[11px] font-mono font-semibold"
+              title={isStopped ? '테스트 시작' : '재생 재개'}
+            >
+              <Play size={13} fill="currentColor" />
+              {isStopped ? 'START' : 'RESUME'}
+            </button>
+          )}
+
+          {/* 일시중지 */}
+          {isPlaying && (
+            <button
+              type="button"
+              onClick={handlePause}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-600/20 border border-yellow-500/40 hover:bg-yellow-600/30 text-yellow-400 hover:text-yellow-300 transition text-[11px] font-mono font-semibold"
+              title="일시중지"
+            >
+              <Pause size={13} />
+              PAUSE
+            </button>
+          )}
+
+          {/* 정지 (재생 또는 일시중지 중에만) */}
+          {!isStopped && (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-800 border border-neutral-600 hover:border-red-500/50 hover:bg-red-900/20 text-slate-400 hover:text-red-400 transition text-[11px] font-mono"
+              title="정지"
+            >
+              <Square size={11} fill="currentColor" />
+              STOP
+            </button>
+          )}
+
+          {/* 상태 표시 */}
+          <div className="flex items-center gap-1.5 px-2 ml-1">
+            <span className={`w-2 h-2 rounded-full ${
+              isPlaying ? 'bg-green-400 animate-pulse' :
+              isPaused ? 'bg-yellow-400' :
+              'bg-neutral-600'
+            }`} />
+            <span className={`text-[10px] font-mono uppercase tracking-wider ${
+              isPlaying ? 'text-green-400' :
+              isPaused ? 'text-yellow-400' :
+              'text-slate-600'
+            }`}>
+              {testPlayState}
+            </span>
+          </div>
+        </div>
+
+        <div className="w-px h-6 bg-neutral-700" />
+
+        {/* 감지 모드 토글: BBox ↔ 객체감지 */}
+        <div className="flex items-center bg-neutral-800 rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => switchDetectionMode('bbox')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-mono transition-all duration-200 ${
+              testDetectionMode === 'bbox'
+                ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+            title="BBox 모드: 네모 박스로 하자 영역 표시"
+          >
+            <Box size={11} />
+            BBOX
+          </button>
+          <button
+            type="button"
+            onClick={() => switchDetectionMode('detection')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-mono transition-all duration-200 ${
+              testDetectionMode === 'detection'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+            title="객체감지 모드: 윤곽 강조 + 반투명 마스크"
+          >
+            <ScanSearch size={11} />
+            DETECT
+          </button>
+        </div>
+
+        <div className="w-px h-6 bg-neutral-700" />
+
+        {/* 소스 선택 탭 */}
+        <div className="flex items-center bg-neutral-800 rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => switchTo('project')}
+            disabled={switchingSource}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono transition-all duration-200 ${
+              !isUploadMode
+                ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <Database size={11} />
+            프로젝트
+          </button>
+          <button
+            type="button"
+            onClick={() => switchTo('upload')}
+            disabled={switchingSource}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono transition-all duration-200 ${
+              isUploadMode
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <HardDrive size={11} />
+            업로드
+          </button>
+        </div>
+
+        {/* 파일 업로드 영역 (업로드 모드일 때만) */}
+        {isUploadMode && (
+          <>
+            <div className="w-px h-6 bg-neutral-700" />
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-800 border border-neutral-600 hover:border-red-500/50 hover:bg-neutral-700 text-slate-300 hover:text-white transition text-[11px] font-mono"
+              >
+                {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                {uploading ? '업로드 중...' : '파일 첨부'}
+              </button>
+              {uploadedCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-800/60 border border-neutral-700">
+                  <FolderOpen size={11} className="text-slate-400" />
+                  <span className="text-[11px] font-mono text-slate-300">{uploadedCount}개</span>
+                  <Check size={10} className="text-green-400" />
+                </div>
+              )}
+              {uploadedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearUploads}
+                  className="p-1.5 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-red-500/50 hover:bg-red-900/30 text-slate-500 hover:text-red-400 transition"
+                  title="업로드 파일 전체 삭제"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

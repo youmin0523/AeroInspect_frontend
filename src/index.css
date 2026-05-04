@@ -1,0 +1,74 @@
+/**
+ * index.css
+ * 역할: Tailwind CSS 베이스 레이어 임포트 및 전역 스타일
+ *       - Tailwind 기본/컴포넌트/유틸리티 레이어 로드
+ *       - 다크 대시보드 배경 전역 적용
+ *       - 스크롤바 커스텀 스타일
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 전역 배경 (드론 관제 대시보드 다크 테마) */
+body {
+  @apply bg-dashboard-bg text-white;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 라이트 배경 위 폼 요소 텍스트 가시성 보장 (body text-white 상속 방지) */
+input, textarea, select {
+  color: #111827; /* gray-900 */
+}
+input::placeholder, textarea::placeholder {
+  color: #9ca3af; /* gray-400 */
+}
+
+/* 커스텀 스크롤바 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-dashboard-surface;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-dashboard-border rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-500;
+}
+
+/* //* [Modified Code] 심각도 뱃지 + 카드 스타일 — 레퍼런스 톤(rounded-xl, shadow, hover) 반영 */
+@layer components {
+  .badge-high {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-semibold;
+  }
+  .badge-med {
+    @apply bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded text-xs font-semibold;
+  }
+  .badge-low {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-xs font-semibold;
+  }
+  /* 기본 카드 — 레퍼런스 디자인 톤: rounded-xl, shadow, slate-700 border, 부드러운 hover */
+  .card {
+    @apply bg-dashboard-surface border border-neutral-700 rounded-xl p-4 shadow-lg;
+    @apply transition-colors duration-200;
+  }
+  /* emerald 강조 카드 (활성 드론 / 강조 패널) */
+  .card-accent {
+    @apply bg-dashboard-surface border border-accent-500/30 rounded-xl p-4 shadow-lg;
+    @apply hover:border-accent-500/60 transition-colors duration-200;
+  }
+  /* 상단 네비 아이콘 버튼 */
+  .icon-btn {
+    @apply p-2 text-neutral-300 hover:text-white hover:bg-neutral-700/60 rounded-full transition-colors;
+  }
+  /* 드론 상태 "ACTIVE" 뱃지 */
+  .badge-active {
+    @apply text-xs bg-accent-500/20 text-accent-400 border border-accent-500/40 px-2 py-0.5 rounded font-medium;
+  }
+  .badge-idle {
+    @apply text-xs bg-neutral-700 text-neutral-400 border border-neutral-600 px-2 py-0.5 rounded font-medium;
+  }
+}

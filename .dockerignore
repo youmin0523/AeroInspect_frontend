@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+
+# Build/dist (Vercel은 자체 빌드)
+dist/
+build/
+.next/
+.cache/
+.parcel-cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Git/IDE
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 테스트
+coverage/
+.nyc_output/
+
+# Vibe log (배포 무관)
+Vibe_Coding_Log.md
+*.md
+!README.md
+
+# Docker 자체
+Dockerfile*
+.dockerignore
+docker-compose*.yml

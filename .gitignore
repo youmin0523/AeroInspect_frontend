@@ -1,0 +1,25 @@
+# =============================================
+# frontend/.gitignore
+# 역할: Git 추적 제외 파일/폴더 목록
+# =============================================
+
+# 환경변수 (API URL 등)
+.env
+
+# npm 패키지 (용량 큼, package.json으로 재설치 가능)
+node_modules/
+
+# 빌드 산출물
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite 캐시
+.vite/
