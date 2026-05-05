@@ -197,7 +197,7 @@ export default function NotificationDropdown({ theme = 'light' }) {
   return (
     <div
       ref={dropdownRef}
-      className={`absolute right-0 top-full mt-2 w-96 rounded-xl border z-50 overflow-hidden ${t.container}`}
+      className={`absolute right-0 top-full mt-2 w-96 rounded-xl border z-[100] overflow-hidden ${t.container}`}
     >
       {/* 헤더 */}
       <div className={`px-4 py-3 flex items-center justify-between gap-2 ${t.header}`}>

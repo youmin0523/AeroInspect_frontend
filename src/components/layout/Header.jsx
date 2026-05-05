@@ -42,7 +42,7 @@ export default function Header() {
   const status = STATUS_CONFIG[connectionStatus] ?? STATUS_CONFIG.disconnected
 
   return (
-    <header className="flex items-center justify-between h-14 px-5 border-b border-slate-700 bg-dashboard-surface shadow-lg flex-shrink-0">
+    <header className="relative z-50 flex items-center justify-between h-14 px-5 border-b border-slate-700 bg-dashboard-surface shadow-lg flex-shrink-0">
       {/* 좌측: 브랜드 */}
       <div className="flex items-center gap-2">
         <div className="p-1.5 bg-accent-500 rounded-md">
