@@ -41,7 +41,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
   const level = useSessionStore((s) => s.level)
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-5 py-3 pointer-events-none">
+    <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-5 py-3 pointer-events-none">
       {/* 좌측: 브랜드 + 세션 컨텍스트 + 검색 */}
       <div className="flex items-center gap-3 pointer-events-auto">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md">
