@@ -24,6 +24,7 @@ export default function TestModeBar() {
   const testDetectionMode = useSessionStore((s) => s.testDetectionMode)
   const setTestDetectionMode = useSessionStore((s) => s.setTestDetectionMode)
   const resetTestGate = useDefectStore((s) => s.resetTestGate)
+  const setDefects = useDefectStore((s) => s.setDefects)
   const fileInputRef = useRef(null)
 
   const [uploadedCount, setUploadedCount] = useState(0)
@@ -37,15 +38,16 @@ export default function TestModeBar() {
 
   // 재생 제어
   const handleStart = useCallback(async () => {
-    // ① 게이트 닫고 큐 비우기 — fetch 응답 도착 전 도달할 수 있는 stale detection 차단
+    // ① 게이트 닫고 큐 비우기 + 이전 사이클 누적 카드 제거
     resetTestGate()
+    setDefects([])
     try {
       const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' })
       if (res.ok) setTestPlayState('playing')
     } catch (err) {
       console.warn('[TestMode] 시작 실패:', err)
     }
-  }, [resetTestGate, setTestPlayState])
+  }, [resetTestGate, setDefects, setTestPlayState])
 
   const handlePause = useCallback(async () => {
     try {

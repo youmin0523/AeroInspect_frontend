@@ -35,11 +35,13 @@ const useDefectStore = create((set, get) => ({
 
   // ── Actions ─────────────────────────────
 
-  /** 새 하자 추가 (WS 실시간 이벤트 수신 시) */
+  /** 새 하자 추가 (WS 실시간 이벤트 수신 시). 같은 id 중복 push 방지(dev StrictMode + WS 재연결로 인한 중복 수신 차단). */
   addDefect: (defect) =>
     set((state) => {
+      if (defect?.id && state.defects.some((d) => d.id === defect.id)) {
+        return state
+      }
       const updated = [defect, ...state.defects]
-      // 최대 건수 초과 시 오래된 항목 제거
       return { defects: updated.slice(0, MAX_DEFECTS) }
     }),
 
