@@ -28,19 +28,8 @@ const messageHandlers = {
     const sess = useSessionStore.getState()
     const defectStore = useDefectStore.getState()
 
-    // (a) TEST MODE에서 detection mode 불일치 카드는 폐기
-    //     백엔드가 모드 전환 직후 잠깐 보낼 수 있는 이전 모드 잔여를 차단.
-    if (sess.isTestMode && data.mode && data.mode !== sess.testDetectionMode) {
-      return
-    }
-
-    // (b) TEST MODE STOP 상태에서 늦게 도착한 메시지는 폐기
-    if (sess.isTestMode && sess.testPlayState === 'stopped') {
-      return
-    }
-
-    // (c) TEST MODE인데 첫 프레임이 아직 화면에 안 뜬 상태면 큐에 보관
-    //     첫 프레임 onLoad 시 markTestMediaReady()가 큐를 일괄 flush.
+    // 게이트 미오픈이면 큐 (첫 프레임 onLoad 시 또는 5s fallback에서 flush).
+    // mode/STOP 가드는 너무 엄격해서 실제 흐름을 막고 있었음 → 제거.
     if (sess.isTestMode && !defectStore.testMediaReady) {
       defectStore.queueTestDefect(data)
       return
