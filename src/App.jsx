@@ -26,6 +26,7 @@ import SiteDetail from './pages/employee/SiteDetail.jsx'
 import Analytics from './pages/employee/Analytics.jsx'
 import Chat from './pages/employee/Chat.jsx'
 import AdminMembers from './pages/employee/AdminMembers.jsx'
+import AdminGpu from './pages/employee/AdminGpu.jsx'
 import Onboarding from './pages/employee/Onboarding.jsx'
 import OrgRequired from './components/auth/OrgRequired.jsx'
 import FloatingChatButton from './components/chat/FloatingChatButton.jsx'
@@ -150,6 +151,7 @@ export default function App() {
         <Route path="/employee/analytics" element={<OrgRequired><Analytics /></OrgRequired>} />
         <Route path="/employee/chat" element={<OrgRequired><Chat /></OrgRequired>} />
         <Route path="/employee/admin/members" element={<OrgRequired adminOnly><AdminMembers /></OrgRequired>} />
+        <Route path="/employee/admin/gpu" element={<OrgRequired adminOnly><AdminGpu /></OrgRequired>} />
 
         {/* //* [Modified Code] 세션 워크플로우 (Setup → Level → Modeling) */}
         <Route path="/session" element={<SessionLayout />}>

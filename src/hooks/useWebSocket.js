@@ -16,6 +16,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import useDefectStore from '../store/defectStore.js'
 import useDroneStore from '../store/droneStore.js'
+import useSessionStore from '../store/sessionStore.js'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/v1/ws'
 const INITIAL_RETRY_DELAY = 300    // 0.3초
@@ -24,7 +25,28 @@ const MAX_RETRY_DELAY = 2000       // 2초
 // 채널별 메시지 핸들러 (모듈 레벨 — 리렌더링과 무관)
 const messageHandlers = {
   'defect.new': (data) => {
-    useDefectStore.getState().addDefect(data)
+    const sess = useSessionStore.getState()
+    const defectStore = useDefectStore.getState()
+
+    // (a) TEST MODE에서 detection mode 불일치 카드는 폐기
+    //     백엔드가 모드 전환 직후 잠깐 보낼 수 있는 이전 모드 잔여를 차단.
+    if (sess.isTestMode && data.mode && data.mode !== sess.testDetectionMode) {
+      return
+    }
+
+    // (b) TEST MODE STOP 상태에서 늦게 도착한 메시지는 폐기
+    if (sess.isTestMode && sess.testPlayState === 'stopped') {
+      return
+    }
+
+    // (c) TEST MODE인데 첫 프레임이 아직 화면에 안 뜬 상태면 큐에 보관
+    //     첫 프레임 onLoad 시 markTestMediaReady()가 큐를 일괄 flush.
+    if (sess.isTestMode && !defectStore.testMediaReady) {
+      defectStore.queueTestDefect(data)
+      return
+    }
+
+    defectStore.addDefect(data)
   },
   'telemetry.update': (data) => {
     useDroneStore.getState().updateTelemetry(data)

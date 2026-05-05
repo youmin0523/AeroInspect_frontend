@@ -62,6 +62,9 @@ export default function Login() {
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
 
+  // 마지막으로 사용한 로그인 방법 (가입자가 다른 방식으로 새 가입하는 사고 방지용 가이드)
+  const [lastLoginMethod] = useState(() => localStorage.getItem('last_login_method'))
+
   const isBusiness = loginType === 'business'
 
   const updateField = (key, value) => {
@@ -97,7 +100,7 @@ export default function Login() {
     try {
       const res = await loginApi(form.userId, form.password)
       const { access_token, refresh_token, user } = res.data
-      setAuth(access_token, user, refresh_token)
+      setAuth(access_token, user, refresh_token, 'local')
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.detail || '로그인에 실패했습니다.')
@@ -230,9 +233,16 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-500 text-white font-bold text-lg py-3.5 rounded-lg transition shadow-md"
+            className={`relative w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-500 text-white font-bold text-lg py-3.5 rounded-lg transition shadow-md ${
+              lastLoginMethod === 'local' ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+            }`}
           >
             {loading ? '로그인 중...' : '로그인'}
+            {lastLoginMethod === 'local' && (
+              <span className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-full leading-none shadow">
+                최근
+              </span>
+            )}
           </button>
         </form>
 
@@ -254,18 +264,32 @@ export default function Login() {
             <p className="text-center text-xs text-gray-400 mb-4 font-medium">
               SNS 계정으로 간편 로그인
             </p>
-            <div className="flex justify-center space-x-4">
-              {SOCIAL_PROVIDERS.map((provider) => (
-                <button
-                  key={provider.id}
-                  type="button"
-                  onClick={() => handleSocialLogin(provider.id)}
-                  aria-label={`${provider.label} 로그인`}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm transition ${provider.bg}`}
-                >
-                  {provider.icon}
-                </button>
-              ))}
+            <div className="flex justify-center space-x-6">
+              {SOCIAL_PROVIDERS.map((provider) => {
+                const isLast = lastLoginMethod === provider.id
+                return (
+                  <div key={provider.id} className="flex flex-col items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSocialLogin(provider.id)}
+                      aria-label={`${provider.label} 로그인${isLast ? ' (최근 사용)' : ''}`}
+                      className={`relative w-12 h-12 rounded-full flex items-center justify-center shadow-sm transition ${provider.bg} ${
+                        isLast ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                      }`}
+                    >
+                      {provider.icon}
+                      {isLast && (
+                        <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[9px] font-bold text-white bg-blue-600 rounded-full leading-none shadow">
+                          최근
+                        </span>
+                      )}
+                    </button>
+                    <span className={`text-[10px] ${isLast ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}>
+                      {provider.label}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

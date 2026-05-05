@@ -17,9 +17,9 @@ const API = axios.create({
 })
 
 API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = sessionStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
-  const currentOrg = JSON.parse(localStorage.getItem('current_org') || 'null')
+  const currentOrg = JSON.parse(sessionStorage.getItem('current_org') || 'null')
   if (currentOrg?.id) config.headers['X-Organization-Id'] = currentOrg.id
   return config
 })

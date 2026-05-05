@@ -11,7 +11,7 @@
  *       - //* [Modified Code] mode prop: store 의 cameraMode 대신 명시 모드 사용 (PIP 멀티 피드용)
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import useDroneStore from '../../store/droneStore.js'
 import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
@@ -39,7 +39,9 @@ const MODE_LABELS = {
 export default function LiveVideoFeed({ fill = false, mode }) {
   const storeCameraMode = useDroneStore((s) => s.cameraMode)
   const isTestMode = useSessionStore((s) => s.isTestMode)
+  const testPlayState = useSessionStore((s) => s.testPlayState)
   const selectedDefect = useDefectStore((s) => s.selectedDefect)
+  const markTestMediaReady = useDefectStore((s) => s.markTestMediaReady)
   // mode prop 이 주어지면 store 무시 — 멀티 피드(메인 + PIP 다른 드론) 렌더링 용도.
   const cameraMode = mode ?? storeCameraMode
   const [hasError, setHasError] = useState(false)
@@ -57,6 +59,38 @@ export default function LiveVideoFeed({ fill = false, mode }) {
       : null
   const displayUrl = defectFrameUrl || streamUrl
   const isDefectView = !!defectFrameUrl
+
+  // src가 바뀌면 에러/로드 플래그 리셋 — 그렇지 않으면 이전 src에서 발생한 onError가
+  // 영구적으로 No-Signal 플레이스홀더에 고정되어, TEST MODE 진입(/stream/rgb → /stream/test/rgb)
+  // 후에도 새 스트림이 마운트되지 못함.
+  useEffect(() => {
+    setHasError(false)
+    setIsLoaded(false)
+  }, [displayUrl])
+
+  // TEST MODE 게이트 fallback: playing 진입 후 5초 안에 첫 프레임 onLoad가 발화되지 않으면
+  // 게이트를 강제로 열어 큐 잔존을 방지. 스트림 실패 시 디버깅 단서가 됨.
+  useEffect(() => {
+    if (!isTestMode || !fill || cameraMode !== 'rgb') return
+    if (testPlayState !== 'playing') return
+    if (isDefectView) return
+    const timer = setTimeout(() => {
+      if (!useDefectStore.getState().testMediaReady) {
+        console.warn('[TestMode] 첫 프레임 onLoad 미발화 — 게이트 강제 open')
+        useDefectStore.getState().markTestMediaReady()
+      }
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [isTestMode, fill, cameraMode, testPlayState, isDefectView])
+
+  const handleImgLoad = () => {
+    setIsLoaded(true)
+    // RGB 메인 큰 피드 + 라이브 스트림(하자 정지프레임 X)일 때만 게이트 열기.
+    // PIP/Thermal 등 보조 피드는 무시 — 1차 신호는 RGB 메인 1회로 충분.
+    if (isTestMode && fill && cameraMode === 'rgb' && !isDefectView) {
+      markTestMediaReady()
+    }
+  }
 
   // fill 모드: 부모(풀스크린 컨테이너) 를 꽉 채움. 일반 모드: 16/9 고정.
   const containerClass = fill
@@ -82,7 +116,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
             src={displayUrl}
             alt="드론 카메라 피드"
             className={imgClass}
-            onLoad={() => setIsLoaded(true)}
+            onLoad={handleImgLoad}
             onError={() => { if (!isDefectView) setHasError(true) }}
           />
           {/* 하자 조회 모드 표시 배지 */}

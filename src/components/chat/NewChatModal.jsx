@@ -16,7 +16,7 @@ import { USER_STATUS_CONFIG } from '../../constants/chatConstants.js'
 import { listOrganizationMembers } from '../../api/organizationApi.js'
 
 function getCurrentUser() {
-  return JSON.parse(localStorage.getItem('user') || 'null') || { id: null, name: '사용자' }
+  return JSON.parse(sessionStorage.getItem('user') || 'null') || { id: null, name: '사용자' }
 }
 
 export default function NewChatModal() {

@@ -37,7 +37,7 @@ export default function OAuthCallback() {
     oauthLogin(provider, code, redirectUri)
       .then((res) => {
         const { access_token, refresh_token, user } = res.data
-        setAuth(access_token, user, refresh_token)
+        setAuth(access_token, user, refresh_token, provider)
         navigate('/', { replace: true })
       })
       .catch((err) => {

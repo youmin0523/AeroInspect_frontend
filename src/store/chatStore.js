@@ -22,7 +22,7 @@ import useNotificationStore from './notificationStore.js'
 
 /** authStore에서 현재 사용자 가져오기 (store 순환 import 방지) */
 function getCurrentUser() {
-  const stored = JSON.parse(localStorage.getItem('user') || 'null')
+  const stored = JSON.parse(sessionStorage.getItem('user') || 'null')
   return stored || { id: null, name: '사용자', initials: '??' }
 }
 

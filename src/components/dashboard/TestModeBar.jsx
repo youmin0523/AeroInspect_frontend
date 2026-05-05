@@ -12,6 +12,7 @@ import {
   Database, HardDrive, Play, Pause, Square, Box, ScanSearch,
 } from 'lucide-react'
 import useSessionStore from '../../store/sessionStore.js'
+import useDefectStore from '../../store/defectStore.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -22,6 +23,7 @@ export default function TestModeBar() {
   const setTestPlayState = useSessionStore((s) => s.setTestPlayState)
   const testDetectionMode = useSessionStore((s) => s.testDetectionMode)
   const setTestDetectionMode = useSessionStore((s) => s.setTestDetectionMode)
+  const resetTestGate = useDefectStore((s) => s.resetTestGate)
   const fileInputRef = useRef(null)
 
   const [uploadedCount, setUploadedCount] = useState(0)
@@ -35,13 +37,15 @@ export default function TestModeBar() {
 
   // 재생 제어
   const handleStart = useCallback(async () => {
+    // ① 게이트 닫고 큐 비우기 — fetch 응답 도착 전 도달할 수 있는 stale detection 차단
+    resetTestGate()
     try {
       const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' })
       if (res.ok) setTestPlayState('playing')
     } catch (err) {
       console.warn('[TestMode] 시작 실패:', err)
     }
-  }, [setTestPlayState])
+  }, [resetTestGate, setTestPlayState])
 
   const handlePause = useCallback(async () => {
     try {
@@ -64,11 +68,14 @@ export default function TestModeBar() {
   const handleStop = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST' })
-      if (res.ok) setTestPlayState('stopped')
+      if (res.ok) {
+        setTestPlayState('stopped')
+        resetTestGate()  // 잔여 큐 폐기 + 게이트 닫음
+      }
     } catch (err) {
       console.warn('[TestMode] 정지 실패:', err)
     }
-  }, [setTestPlayState])
+  }, [resetTestGate, setTestPlayState])
 
   // 감지 모드 전환 (백엔드 동기화)
   const switchDetectionMode = useCallback(async (newMode) => {
@@ -96,12 +103,14 @@ export default function TestModeBar() {
         body: JSON.stringify({ source: newSource }),
       })
       setTestSource(newSource)
+      // 새 소스의 첫 프레임이 다시 떠야 우측 패널 갱신을 허용
+      resetTestGate()
     } catch (err) {
       console.warn('[TestMode] 소스 전환 실패:', err)
     } finally {
       setSwitchingSource(false)
     }
-  }, [testSource, setTestSource, switchingSource])
+  }, [testSource, setTestSource, switchingSource, resetTestGate])
 
   // 파일 업로드
   const handleFileChange = useCallback(async (e) => {

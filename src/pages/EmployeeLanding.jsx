@@ -43,6 +43,7 @@ import {
   MessageSquare,
   Shield,
   FlaskConical,
+  Cpu,
 } from 'lucide-react'
 import useAuthStore from '../store/authStore.js'
 import useDefectStore from '../store/defectStore.js'
@@ -794,6 +795,15 @@ function QuickActionsSection() {
     accent: 'amber',
   }
 
+  const gpuCard = {
+    key: 'admin-gpu',
+    title: 'GPU 추론 서버 제어',
+    desc: 'GCP L4 GPU VM 을 점검 시작 전 켜고, 종료 후 정지해 비용을 절감합니다.',
+    to: '/employee/admin/gpu',
+    icon: Cpu,
+    accent: 'cyan',
+  }
+
   const testModeCard = {
     key: 'test-mode',
     title: 'TEST MODE',
@@ -806,6 +816,7 @@ function QuickActionsSection() {
   const actions = [
     ...QUICK_ACTIONS,
     ...(isAdmin ? [adminCard, testModeCard] : []),
+    ...(user?.is_superadmin ? [gpuCard] : []),
   ]
 
   const handleTestModeClick = () => {

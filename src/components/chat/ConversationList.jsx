@@ -9,7 +9,7 @@ import { CHAT_FILTER_TABS } from '../../constants/chatConstants.js'
 import ConversationItem from './ConversationItem.jsx'
 
 function getCurrentUserId() {
-  const stored = JSON.parse(localStorage.getItem('user') || 'null')
+  const stored = JSON.parse(sessionStorage.getItem('user') || 'null')
   return stored?.id || null
 }
 

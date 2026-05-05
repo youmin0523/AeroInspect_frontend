@@ -15,11 +15,11 @@ const API = axios.create({
 
 // 요청 시 JWT 토큰 + 현재 조직 ID 자동 첨부
 API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = sessionStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
-  const currentOrg = JSON.parse(localStorage.getItem('current_org') || 'null')
+  const currentOrg = JSON.parse(sessionStorage.getItem('current_org') || 'null')
   if (currentOrg?.id) {
     config.headers['X-Organization-Id'] = currentOrg.id
   }
@@ -45,16 +45,16 @@ API.interceptors.response.use(
 
     // refresh 엔드포인트 자체가 401이면 로그아웃
     if (originalRequest.url?.includes('/auth/refresh')) {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('current_org')
+      sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('refresh_token')
+      sessionStorage.removeItem('user')
+      sessionStorage.removeItem('current_org')
       window.location.href = '/login'
       return Promise.reject(error)
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = localStorage.getItem('refresh_token')
+      const refreshToken = sessionStorage.getItem('refresh_token')
       if (!refreshToken) {
         return Promise.reject(error)
       }
@@ -76,16 +76,16 @@ API.interceptors.response.use(
           refresh_token: refreshToken,
         })
         const newToken = data.access_token
-        localStorage.setItem('access_token', newToken)
+        sessionStorage.setItem('access_token', newToken)
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         processQueue(null, newToken)
         return API(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
-        localStorage.removeItem('current_org')
+        sessionStorage.removeItem('access_token')
+        sessionStorage.removeItem('refresh_token')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('current_org')
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {
@@ -156,7 +156,8 @@ export const getGoogleAuthUrl = () => {
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
-    prompt: 'consent',
+    // 구글 세션이 살아있어도 계정 선택 화면 강제 (다른 계정 전환 허용)
+    prompt: 'select_account consent',
   })
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }
@@ -166,6 +167,8 @@ export const getKakaoAuthUrl = () => {
     client_id: import.meta.env.VITE_KAKAO_JS_KEY,
     redirect_uri: `${REDIRECT_BASE}/auth/kakao/callback`,
     response_type: 'code',
+    // 카카오 자동 로그인 무시, ID/PW 재입력 강제
+    prompt: 'login',
   })
   return `https://kauth.kakao.com/oauth/authorize?${params}`
 }
@@ -178,6 +181,8 @@ export const getNaverAuthUrl = () => {
     redirect_uri: `${REDIRECT_BASE}/auth/naver/callback`,
     response_type: 'code',
     state,
+    // 네이버 세션이 살아있어도 ID/PW 재입력을 강제 (다른 계정 전환 허용)
+    auth_type: 'reprompt',
   })
   return `https://nid.naver.com/oauth2.0/authorize?${params}`
 }

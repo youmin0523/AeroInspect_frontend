@@ -16,7 +16,7 @@ import axios from 'axios'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const api = axios.create({ baseURL: API_BASE })
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = sessionStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -33,15 +33,15 @@ api.interceptors.response.use(
   async (error) => {
     const orig = error.config
     if (orig.url?.includes('/auth/refresh')) {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('current_org')
+      sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('refresh_token')
+      sessionStorage.removeItem('user')
+      sessionStorage.removeItem('current_org')
       window.location.href = '/login'
       return Promise.reject(error)
     }
     if (error.response?.status === 401 && !orig._retry) {
-      const rt = localStorage.getItem('refresh_token')
+      const rt = sessionStorage.getItem('refresh_token')
       if (!rt) return Promise.reject(error)
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -52,16 +52,16 @@ api.interceptors.response.use(
       isRefreshing = true
       try {
         const { data } = await api.post('/api/v1/auth/refresh', { refresh_token: rt })
-        localStorage.setItem('access_token', data.access_token)
+        sessionStorage.setItem('access_token', data.access_token)
         orig.headers.Authorization = `Bearer ${data.access_token}`
         processQueue(null, data.access_token)
         return api(orig)
       } catch (e) {
         processQueue(e, null)
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
-        localStorage.removeItem('current_org')
+        sessionStorage.removeItem('access_token')
+        sessionStorage.removeItem('refresh_token')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('current_org')
         window.location.href = '/login'
         return Promise.reject(e)
       } finally { isRefreshing = false }
@@ -92,7 +92,7 @@ export default function Onboarding() {
       await api.post('/api/v1/organizations', { name: orgName.trim() })
       // 조직 생성 후 /auth/me 호출하여 최신 사용자 정보 반영
       const meRes = await getMe()
-      const currentToken = localStorage.getItem('access_token')
+      const currentToken = sessionStorage.getItem('access_token')
       setAuth(currentToken, meRes.data)
       navigate('/employee', { replace: true })
     } catch (err) {
@@ -109,7 +109,7 @@ export default function Onboarding() {
     try {
       await api.post('/api/v1/organizations/join', { invite_code: inviteCode.toUpperCase() })
       const meRes = await getMe()
-      const currentToken = localStorage.getItem('access_token')
+      const currentToken = sessionStorage.getItem('access_token')
       setAuth(currentToken, meRes.data)
       navigate('/employee', { replace: true })
     } catch (err) {

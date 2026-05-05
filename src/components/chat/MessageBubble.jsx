@@ -23,7 +23,7 @@ async function triggerDownload(messageId, fallbackName) {
 }
 
 function getCurrentUserId() {
-  const stored = JSON.parse(localStorage.getItem('user') || 'null')
+  const stored = JSON.parse(sessionStorage.getItem('user') || 'null')
   return stored?.id || null
 }
 

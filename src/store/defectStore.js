@@ -6,6 +6,12 @@
  *       - selectedDefect: 선택된 하자 (사이드패널 상세 표시용)
  *       - addDefect: WebSocket "defect.new" 이벤트 수신 시 호출
  *       - filteredDefects: 필터 적용된 하자 목록 (파생 selector)
+ *
+ *       TEST MODE 미디어-검출 동기화:
+ *       - testMediaReady: RGB 메인 피드의 첫 프레임이 onLoad 됐는지
+ *       - pendingTestDefects: 첫 프레임 도착 전에 받은 detection 큐
+ *       - 게이트 OPEN 시 큐를 defects 끝(하단)으로 append → 신규 detection은
+ *         정상대로 unshift(상단)되어 "현재 검출이 제일 위, 큐 잔존이 그 아래" 성립
  */
 
 import { create } from 'zustand'
@@ -23,6 +29,10 @@ const useDefectStore = create((set, get) => ({
   selectedDefect: null,
   isLoading: false,
 
+  // TEST MODE 게이트
+  testMediaReady: false,
+  pendingTestDefects: [],
+
   // ── Actions ─────────────────────────────
 
   /** 새 하자 추가 (WS 실시간 이벤트 수신 시) */
@@ -32,6 +42,35 @@ const useDefectStore = create((set, get) => ({
       // 최대 건수 초과 시 오래된 항목 제거
       return { defects: updated.slice(0, MAX_DEFECTS) }
     }),
+
+  /** TEST MODE에서 첫 프레임이 아직 화면에 뜨지 않았을 때 detection을 큐에 보관 */
+  queueTestDefect: (defect) =>
+    set((state) => {
+      if (state.pendingTestDefects.some((d) => d.id === defect.id)) return state
+      return {
+        pendingTestDefects: [...state.pendingTestDefects, defect].slice(-MAX_DEFECTS),
+      }
+    }),
+
+  /** RGB 메인 피드의 첫 프레임 onLoad 시 호출. 큐를 defects 하단에 일괄 append. */
+  markTestMediaReady: () => {
+    const s = get()
+    if (s.testMediaReady) return
+    set((st) => {
+      if (st.pendingTestDefects.length === 0) {
+        return { testMediaReady: true }
+      }
+      return {
+        defects: [...st.defects, ...st.pendingTestDefects].slice(0, MAX_DEFECTS),
+        pendingTestDefects: [],
+        testMediaReady: true,
+      }
+    })
+  },
+
+  /** TEST 시작/정지/소스 전환 시 게이트 닫고 큐 폐기 */
+  resetTestGate: () =>
+    set({ testMediaReady: false, pendingTestDefects: [] }),
 
   /** 하자 목록 전체 교체 (초기 REST 조회 시) */
   setDefects: (defects) => set({ defects }),
@@ -61,6 +100,8 @@ const useDefectStore = create((set, get) => ({
       defects: [],
       filters: { severity: null, area: null, categoryCode: null },
       selectedDefect: null,
+      testMediaReady: false,
+      pendingTestDefects: [],
     }),
 
   // ── Selectors ───────────────────────────
