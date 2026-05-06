@@ -2417,3 +2417,20 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **DevTools DOM 캡처 요청 타이밍**: R28.3 시점에서 DOM 캡처 요청했어야. 코드 변경 3차례 누적 후에야 사용자가 자발적으로 DevTools 보여줌 — 이 시점에 inline style 정상 적용 확인되어 캐시 문제 윤곽 잡힘. 향후 비주얼 버그 디버깅은 DevTools DOM 캡처를 1차 요청.
 - **R28.3 ~ R28.4 의 안전망은 유지**: 캐시 문제로 라운드를 거치며 추가된 robustness 코드(Portal, isolation: isolate, inline style 트리플)는 "오버엔지니어링" 으로 보일 수 있으나, 실제 사용자가 캐시 이슈에 한 번 빠지면 동일 디버깅 사이클이 반복될 가능성. 안전망 자체는 미래 가치 있으므로 유지.
 
+### R29 — Dashboard ↔ Employee 허브 복귀 동선 (2026-05-06 16:00)
+
+> 사용자 피드백: "현재 dashboard 에서는 employee 로 바로 돌아갈 수 있는 버튼이 없네. 로고를 클릭하면 employee 로 돌아갈 수 있고…" — 현장(/dashboard) 화면에서 사무실 허브(/employee)로 복귀할 진입점 부재. 풀스크린 HUD 라 헤더가 기본 노출되지 않는 구조 특성상 사용자가 갇히는 느낌을 받을 수 있음.
+
+진단: `DashboardTopBar.jsx` 의 좌상단 브랜드 로고(🚁 DRONE INSPECT) 가 정적 `<div>` 로 렌더되어 있어 클릭 어포던스 없음. 다른 통상적 SaaS 패턴(로고 = 홈 복귀)이 적용 안 되어 있음.
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R29 | 2026-05-06 16:00 | **(1) 로고를 button 으로 전환** — 좌상단 브랜드 로고 `<div>` → `<button type="button">` 으로 변경. `useNavigate` 훅 import 후 `handleLogoClick` 콜백에서 `navigate('/employee')` 호출. **(2) 비행 중 보호장치** — `useDroneStore` 의 `missionStatus` 구독. `flying` 상태일 때 `window.confirm("비행 중입니다. 사무실 화면으로 돌아가면 현재 세션이 중단될 수 있습니다.")` 로 실수 방지. `idle`/`ended` 는 즉시 이동. **(3) hover 어포던스** — `hover:border-accent-500/50 hover:bg-neutral-900/90 transition cursor-pointer` 추가. `title`/`aria-label` 모두 "사무실(직원 홈)으로 돌아가기" 로 명시. | `DashboardTopBar.jsx` |
+
+### 📐 설계 결정 사항
+
+- **로고 = 홈 복귀의 일반성**: 일반 SaaS UX 패턴(GitHub, Linear, Notion 등)에서 좌상단 로고 = 루트 홈. 별도 "← 사무실로 돌아가기" 버튼을 추가하지 않은 이유는 (1) HUD 의 시각 노이즈 최소화, (2) 사용자가 별도 학습 없이 직관적으로 시도하는 패턴, (3) 모바일 화면에서 추가 버튼 공간 부족.
+- **flying 상태 confirm 의 필요성**: 비행 중 실시간 검출 데이터(WebSocket 으로 누적 중)가 사무실 페이지 이동 시 컴포넌트 unmount → 휘발될 가능성. `endMission()` 정식 종료 없이 떠나면 리포트 생성 누락. `confirm` 1단계로 충분 — modal 까지 띄우는 건 과함.
+- **/employee 가 아닌 /employee/dashboard 등으로 가지 않은 이유**: `EmployeeLanding.jsx` 가 `/employee` 의 진입 페이지로 사무실 허브 역할(스케줄/KPI/활동/관리). 이게 가장 "허브" 의미에 부합. 추후 사용자가 "더 구체적인 페이지로" 를 원하면 별도 round.
+- **모바일 hover 클래스의 의미**: 터치 디바이스에서 `hover:` 가 발화되지 않지만, `cursor-pointer` 와 `transition` 은 데스크탑/태블릿 마우스 사용자에게 클릭 가능 어포던스 제공. 모바일은 어차피 탭 시 즉시 동작하므로 시각적 피드백 부재가 UX 손상 아님.
+

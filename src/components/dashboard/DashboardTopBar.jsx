@@ -8,6 +8,7 @@
  */
 
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, Satellite, Route, Bell } from 'lucide-react'
 import useDroneStore from '../../store/droneStore.js'
 import useDefectStore from '../../store/defectStore.js'
@@ -25,7 +26,9 @@ const STATUS_CONFIG = {
 
 // //* [Modified Code] onMissionEnd prop — Dashboard 가 /dashboard/report 네비게이션을 주입
 export default function DashboardTopBar({ onMissionEnd }) {
+  const navigate = useNavigate()
   const connectionStatus = useDroneStore((s) => s.connectionStatus)
+  const missionStatus = useDroneStore((s) => s.missionStatus)
   const defects = useDefectStore((s) => s.defects)
   const highCount = defects.filter((d) => d.severity === 'HIGH').length
   const status = STATUS_CONFIG[connectionStatus] ?? STATUS_CONFIG.disconnected
@@ -40,12 +43,32 @@ export default function DashboardTopBar({ onMissionEnd }) {
   const operatorName = useSessionStore((s) => s.operatorName)
   const level = useSessionStore((s) => s.level)
 
+  // //* [Modified Code] 로고 클릭 → /employee 복귀
+  //  - 비행 중(flying)에는 confirm 으로 실수 방지 (실시간 검출 데이터가 사라질 수 있음)
+  //  - idle/ended 상태면 즉시 이동
+  const handleLogoClick = () => {
+    if (missionStatus === 'flying') {
+      const ok = window.confirm('비행 중입니다. 사무실 화면으로 돌아가면 현재 세션이 중단될 수 있습니다.\n계속하시겠습니까?')
+      if (!ok) return
+    }
+    navigate('/employee')
+  }
+
   return (
     <div className="relative md:absolute md:top-0 md:left-0 md:right-0 z-40 flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 pointer-events-none bg-dashboard-bg/80 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none">
       {/* 좌측: 브랜드 + 세션 컨텍스트 + 검색 */}
       {/* //* [Modified Code] 모바일: 검색바/세션 라벨 hide, 브랜드만 압축 노출 */}
       <div className="flex items-center gap-2 md:gap-3 pointer-events-auto min-w-0 flex-1 md:flex-none">
-        <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md shrink-0">
+        {/* //* [Modified Code] 로고 = /employee 홈 복귀 버튼.
+            - 사무실(employee) 허브로 빠르게 돌아갈 수 있는 유일한 진입점
+            - 비행 중에는 confirm 으로 실수 방지 */}
+        <button
+          type="button"
+          onClick={handleLogoClick}
+          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md shrink-0 hover:border-accent-500/50 hover:bg-neutral-900/90 transition cursor-pointer"
+          title="사무실(직원 홈)으로 돌아가기"
+          aria-label="사무실(직원 홈)으로 돌아가기"
+        >
           <div className="p-0.5 md:p-1 bg-accent-500 rounded-md">
             <span className="text-white text-[10px] md:text-xs" aria-hidden>🚁</span>
           </div>
@@ -53,7 +76,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
             <span className="md:hidden">D · INSPECT</span>
             <span className="hidden md:inline">DRONE INSPECT</span>
           </span>
-        </div>
+        </button>
 
         {/* 세션 컨텍스트 라벨 — 태블릿(md)부터 노출, 폭 단계화 */}
         {siteName && (
