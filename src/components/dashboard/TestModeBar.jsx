@@ -145,8 +145,11 @@ export default function TestModeBar() {
   }, [])
 
   return (
-    <div className="absolute top-[56px] left-0 right-0 z-20 flex items-center justify-center px-5 py-2 pointer-events-none">
-      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-neutral-900/80 border border-blue-500/40 backdrop-blur-sm shadow-lg pointer-events-auto">
+    /* //* [Modified Code] 반응형:
+       - 모바일(<md): 자연 흐름 + 가로 스크롤 (DashboardTopBar 가 모바일에서 relative 라 흐름 안 자리)
+       - 태블릿/데스크탑(md+): TopBar 가 absolute 라 자체도 absolute top-[56px] 로 띄움 + 컨텐츠 가로 스크롤 fallback */
+    <div className="relative md:absolute md:top-[56px] md:left-0 md:right-0 z-20 flex items-center justify-start md:justify-center px-3 md:px-5 py-2 pointer-events-none overflow-x-auto">
+      <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 rounded-xl bg-neutral-900/80 border border-blue-500/40 backdrop-blur-sm shadow-lg pointer-events-auto whitespace-nowrap shrink-0">
 
         {/* 1차 배포: 영상 수신기 미도착으로 testMode 를 "현장 점검" 으로 위장 노출.
             수신기 도착 후 라벨/색상/아이콘 원복: Camera→FlaskConical, blue→red, "현장 점검"→"Test Mode" */}

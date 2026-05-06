@@ -37,14 +37,20 @@ function SignalBars({ strength = 4, active }) {
   )
 }
 
-export default function DronesPanel() {
+// //* [Modified Code] layout prop — 'absolute'(기본, HUD 좌하단 고정) | 'stacked'(모바일 fallback, 부모 흐름 안에 자연 배치)
+export default function DronesPanel({ layout = 'absolute' }) {
   const selectedDroneId = useDroneStore((s) => s.selectedDroneId)
   const setSelectedDrone = useDroneStore((s) => s.setSelectedDrone)
   const telemetry = useDroneStore((s) => s.telemetry)
   const connectionStatus = useDroneStore((s) => s.connectionStatus)
 
+  const wrapperClass = layout === 'stacked'
+    ? 'relative w-full rounded-xl bg-neutral-900/90 border border-neutral-700/60 backdrop-blur-sm shadow-lg'
+    // //* [Modified Code] 태블릿(md~lg)은 패널 폭 320, 데스크탑은 360 — Dashboard SAFE_TABLET 와 동기화
+    : 'absolute bottom-3 lg:bottom-4 left-3 lg:left-4 z-20 w-[320px] lg:w-[360px] rounded-xl bg-neutral-900/90 border border-neutral-700/60 backdrop-blur-sm shadow-lg pointer-events-auto'
+
   return (
-    <div className="absolute bottom-4 left-4 z-20 w-[360px] rounded-xl bg-neutral-900/90 border border-neutral-700/60 backdrop-blur-sm shadow-lg pointer-events-auto">
+    <div className={wrapperClass}>
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-700/60">
         <div className="flex items-center gap-2">

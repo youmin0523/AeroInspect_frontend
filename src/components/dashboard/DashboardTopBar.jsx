@@ -41,32 +41,35 @@ export default function DashboardTopBar({ onMissionEnd }) {
   const level = useSessionStore((s) => s.level)
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-5 py-3 pointer-events-none">
+    <div className="relative md:absolute md:top-0 md:left-0 md:right-0 z-40 flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 pointer-events-none bg-dashboard-bg/80 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none">
       {/* 좌측: 브랜드 + 세션 컨텍스트 + 검색 */}
-      <div className="flex items-center gap-3 pointer-events-auto">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md">
-          <div className="p-1 bg-accent-500 rounded-md">
-            <span className="text-white text-xs" aria-hidden>🚁</span>
+      {/* //* [Modified Code] 모바일: 검색바/세션 라벨 hide, 브랜드만 압축 노출 */}
+      <div className="flex items-center gap-2 md:gap-3 pointer-events-auto min-w-0 flex-1 md:flex-none">
+        <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md shrink-0">
+          <div className="p-0.5 md:p-1 bg-accent-500 rounded-md">
+            <span className="text-white text-[10px] md:text-xs" aria-hidden>🚁</span>
           </div>
-          <span className="font-extrabold text-white tracking-tight uppercase text-sm">
-            DRONE INSPECT
+          <span className="font-extrabold text-white tracking-tight uppercase text-[11px] md:text-sm whitespace-nowrap">
+            <span className="md:hidden">D · INSPECT</span>
+            <span className="hidden md:inline">DRONE INSPECT</span>
           </span>
         </div>
 
-        {/* //* [Modified Code] 세션 컨텍스트 라벨 */}
+        {/* 세션 컨텍스트 라벨 — 태블릿(md)부터 노출, 폭 단계화 */}
         {siteName && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900/70 border border-accent-500/30 backdrop-blur-sm shadow-md">
-            <span className="text-xs text-slate-400">Session</span>
-            <span className="text-xs text-white font-semibold truncate max-w-[240px]">{siteName}</span>
-            <span className="text-[10px] text-slate-500">·</span>
-            <span className="text-xs text-slate-300">{operatorName}</span>
-            <span className="text-xs font-medium text-accent-400 bg-accent-500/10 px-1.5 py-0.5 rounded">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900/70 border border-accent-500/30 backdrop-blur-sm shadow-md min-w-0">
+            <span className="text-xs text-slate-400 shrink-0">Session</span>
+            <span className="text-xs text-white font-semibold truncate max-w-[140px] lg:max-w-[240px]">{siteName}</span>
+            <span className="text-[10px] text-slate-500 shrink-0 hidden lg:inline">·</span>
+            <span className="text-xs text-slate-300 hidden lg:inline truncate max-w-[80px]">{operatorName}</span>
+            <span className="text-xs font-medium text-accent-400 bg-accent-500/10 px-1.5 py-0.5 rounded shrink-0">
               L{level}
             </span>
           </div>
         )}
 
-        <div className="relative">
+        {/* 검색바 — 데스크탑(lg)부터 노출 (md 에선 패널 공간 부족) */}
+        <div className="relative hidden lg:block">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             size={14}
@@ -74,17 +77,18 @@ export default function DashboardTopBar({ onMissionEnd }) {
           <input
             type="text"
             placeholder="Global Search..."
-            className="bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md rounded-lg py-2 pl-9 pr-4 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 w-60 shadow-lg"
+            className="bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md rounded-lg py-2 pl-9 pr-4 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 w-48 xl:w-60 shadow-lg"
           />
         </div>
       </div>
 
-      {/* //* [Modified Code] 중앙: MissionControl (START/END) + Satellite Map 토글 */}
-      <div className="flex items-center gap-2 pointer-events-auto">
+      {/* 중앙: MissionControl (START/END) + Satellite Map 토글 */}
+      {/* //* [Modified Code] 모바일: MissionControl만, Satellite 버튼 hide */}
+      <div className="flex items-center gap-2 pointer-events-auto shrink-0">
         <MissionControl onEnd={onMissionEnd} />
         <button
           type="button"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-900/70 border border-accent-500/40 backdrop-blur-md text-xs text-accent-300 font-semibold shadow-lg hover:bg-accent-500/10 transition"
+          className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-900/70 border border-accent-500/40 backdrop-blur-md text-xs text-accent-300 font-semibold shadow-lg hover:bg-accent-500/10 transition"
           title="위성 맵 (데모 — Mapbox 도입 전)"
         >
           <Satellite size={14} />
@@ -93,17 +97,18 @@ export default function DashboardTopBar({ onMissionEnd }) {
       </div>
 
       {/* 우측: Flightpaths + 상태 + 알림 + 프로필 */}
-      <div className="flex items-center gap-2 pointer-events-auto">
+      {/* //* [Modified Code] 모바일: 알림 + 프로필만, Flightpaths/상태 hide */}
+      <div className="flex items-center gap-1.5 md:gap-2 pointer-events-auto shrink-0">
         <button
           type="button"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-200 font-semibold shadow-lg hover:border-neutral-500 transition"
+          className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-200 font-semibold shadow-lg hover:border-neutral-500 transition"
           title="비행 경로 필터"
         >
           <Route size={14} />
           Flightpaths
         </button>
 
-        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-300 shadow-lg">
+        <div className="hidden md:flex items-center gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-300 shadow-lg">
           <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
           <span className="font-mono">{status.label}</span>
         </div>
@@ -111,7 +116,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
         <div className="relative">
           <button
             type="button"
-            className="relative p-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-slate-300 hover:text-white shadow-lg transition"
+            className="relative p-1.5 md:p-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-slate-300 hover:text-white shadow-lg transition"
             aria-label="알림"
             onClick={toggleDropdown}
           >
@@ -126,7 +131,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
         </div>
 
         <div
-          className="w-9 h-9 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md flex items-center justify-center text-xs font-bold text-white shadow-lg"
+          className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md flex items-center justify-center text-xs font-bold text-white shadow-lg"
           title="프로필 (TEMP — DB 연결 전)"
         >
           U
