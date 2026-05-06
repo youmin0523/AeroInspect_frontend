@@ -151,7 +151,7 @@ export default function App() {
         <Route path="/employee/analytics" element={<OrgRequired><Analytics /></OrgRequired>} />
         <Route path="/employee/chat" element={<OrgRequired><Chat /></OrgRequired>} />
         <Route path="/employee/admin/members" element={<OrgRequired adminOnly><AdminMembers /></OrgRequired>} />
-        <Route path="/employee/admin/gpu" element={<OrgRequired adminOnly><AdminGpu /></OrgRequired>} />
+        <Route path="/employee/admin/gpu" element={<OrgRequired><AdminGpu /></OrgRequired>} />
 
         {/* //* [Modified Code] 세션 워크플로우 (Setup → Level → Modeling) */}
         <Route path="/session" element={<SessionLayout />}>

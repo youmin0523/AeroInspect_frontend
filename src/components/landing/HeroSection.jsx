@@ -108,7 +108,7 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative bg-slate-900 text-white min-h-[70vh] flex items-center justify-center text-center px-4 overflow-hidden">
+    <section className="relative bg-slate-900 text-white min-h-screen flex items-center justify-center text-center px-4 sm:px-6 overflow-hidden">
       {/* 배경: 2개 레이어를 겹쳐두고 opacity로 크로스페이드 */}
       <ImageLayer picks={layerA} opacityClass={activeLayer === 'A' ? 'opacity-100' : 'opacity-0'} />
       <ImageLayer picks={layerB} opacityClass={activeLayer === 'B' ? 'opacity-100' : 'opacity-0'} />
@@ -126,33 +126,35 @@ export default function HeroSection() {
       />
 
       {/* 텍스트 & CTA */}
-      <div className="relative z-10 max-w-4xl lg:max-w-5xl">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.35] md:leading-[1.4] mb-6 break-keep">
-          <span className="md:whitespace-nowrap">도면이 없어도 완벽한 3D 모델링,</span>
+      <div className="relative z-10 max-w-3xl md:max-w-4xl lg:max-w-5xl">
+        {/* //* [Modified Code] 소형 폰(<375)에서도 안정 — 기본 text-3xl로 시작, sm부터 4xl 단계 상승 */}
+        <h1 className="text-3xl sm:text-4xl md:text-[2.75rem] lg:text-6xl font-extrabold leading-[1.3] sm:leading-[1.35] md:leading-[1.4] mb-5 sm:mb-6 break-keep">
+          <span className="lg:whitespace-nowrap">도면이 없어도 완벽한 3D 모델링,</span>
           <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-yellow-400">
-            <span className="md:whitespace-nowrap">드론이 건축물의</span>
+            <span className="lg:whitespace-nowrap">드론이 건축물의</span>
             <br />
-            <span className="md:whitespace-nowrap">디지털 트윈을 완성합니다.</span>
+            <span className="lg:whitespace-nowrap">디지털 트윈을 완성합니다.</span>
           </span>
         </h1>
-        <p className="text-base md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed break-keep">
+        <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-300 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed break-keep">
           CAD 데이터부터 실시간 자율비행 스캔까지.
           <br />
           어떤 환경에서도 빈틈없는 3D 기반 정밀 하자점검 플랫폼.
         </p>
-        <div className="flex flex-col sm:flex-row justify-center gap-4">
+        {/* //* [Modified Code] 모바일에서는 버튼 폭 100% (가로 꽉 차) + 사이즈 축소 → 작은 폰 가독성 향상 */}
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-2 sm:px-0">
           <button
             type="button"
             onClick={() => navigate('/sample-report')}
-            className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-8 py-3.5 rounded-md font-bold text-lg transition shadow-lg focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-md font-bold text-base sm:text-lg transition shadow-lg focus:outline-none focus:ring-2 focus:ring-yellow-300"
           >
             3D 리포트 샘플 보기
           </button>
           <button
             type="button"
             onClick={() => setIsContactOpen(true)}
-            className="bg-transparent border-2 border-gray-400 hover:border-white px-8 py-3.5 rounded-md font-bold text-lg transition focus:outline-none focus:ring-2 focus:ring-white"
+            className="w-full sm:w-auto bg-transparent border-2 border-gray-400 hover:border-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-md font-bold text-base sm:text-lg transition focus:outline-none focus:ring-2 focus:ring-white"
           >
             서비스 도입 문의
           </button>

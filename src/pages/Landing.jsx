@@ -11,6 +11,7 @@ import ServiceIntroSection from '../components/landing/ServiceIntroSection.jsx'
 import FeaturesSection from '../components/landing/FeaturesSection.jsx'
 import CasesSection from '../components/landing/CasesSection.jsx'
 import DualCTASection from '../components/landing/DualCTASection.jsx'
+import Footer from '../components/landing/Footer.jsx'
 
 export default function Landing() {
   return (
@@ -21,8 +22,9 @@ export default function Landing() {
         <ServiceIntroSection />
         <FeaturesSection />
         <CasesSection />
+        {/* DualCTA + Footer — 자연 크기. DualCTA flex-1 강제 확장 제거하여 panel 이 컨텐츠 + 패딩 만큼만 차지 */}
         <DualCTASection />
-        {/* TODO: Footer 섹션 (회사 정보 / 링크 / Copyright) 추후 추가 */}
+        <Footer />
       </main>
     </div>
   )

@@ -79,26 +79,30 @@ const ACCENT_STYLES = {
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="pb-24 scroll-mt-20 md:scroll-mt-24">
+    <section id="features" className="min-h-[calc(100vh-5rem)] md:min-h-[calc(100vh-6rem)] flex flex-col scroll-mt-20 md:scroll-mt-24">
       {/* 다크 배너 */}
-      <div className="bg-slate-900 text-white py-20 px-8 text-center mb-16">
-        <h2 className="text-3xl md:text-4xl font-bold mb-4">DRONE INSPECT 핵심 기술 스택</h2>
-        <p className="text-gray-400 text-base md:text-lg">
+      {/* //* [Modified Code] 모바일 padding/타이포 단계화 */}
+      <div className="bg-slate-900 text-white py-14 sm:py-20 md:py-24 lg:py-28 px-6 sm:px-8 text-center">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 md:mb-5 break-keep">DRONE INSPECT 핵심 기술 스택</h2>
+        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-400 break-keep">
           아키텍처 설계부터 AI 분석까지, 타협하지 않는 정밀함을 구현합니다.
         </p>
       </div>
 
-      {/* 3개 기술 축 카드 */}
-      <div className="max-w-7xl mx-auto px-6 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* 3개 기술 축 카드 — flex-1 + items-center 로 잔여 viewport 영역 위/아래 대칭 분배 */}
+      <div className="flex-1 flex items-center py-12 md:py-14 lg:py-16">
+        {/* //* [Modified Code] 태블릿(md~lg) 2열 시 마지막 카드는 2칸 차지 + 내부에서 데스크탑과 동일한 카드 폭으로 가운데 정렬 */}
+        <div className="max-w-7xl w-full mx-auto px-6 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7 lg:gap-8">
         {TECH_CARDS.map((card, idx) => {
           const style = ACCENT_STYLES[card.accent]
+          const isOrphanLastOnTablet = idx === TECH_CARDS.length - 1 && TECH_CARDS.length % 2 === 1
           return (
-            <Reveal key={card.key} delay={idx * 120}>
+            <Reveal key={card.key} delay={idx * 120} className={isOrphanLastOnTablet ? 'md:col-span-2 lg:col-span-1 md:max-w-[calc(50%-0.875rem)] md:mx-auto lg:max-w-none' : ''}>
             <article
               className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl hover:-translate-y-1 transition duration-300 h-full"
             >
               {/* 상단 비주얼: 이미지가 있으면 이미지 + 코드 라벨 오버레이, 없으면 코드 스트립 */}
-              <div className="relative h-48 bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition overflow-hidden">
+              <div className="relative h-36 sm:h-40 md:h-44 lg:h-44 bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition overflow-hidden">
                 {card.image ? (
                   <>
                     <img
@@ -123,22 +127,22 @@ export default function FeaturesSection() {
                 )}
               </div>
 
-              <div className="p-6">
+              <div className="p-6 md:p-7">
                 <span
-                  className={`text-xs font-bold text-white px-2 py-1 rounded mb-3 inline-block ${style.tagBg}`}
+                  className={`text-xs md:text-sm font-bold text-white px-2 py-1 rounded mb-3 inline-block ${style.tagBg}`}
                 >
                   {card.tag}
                 </span>
-                <h3 className="text-xl font-bold text-slate-800 mb-2 break-keep">{card.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed break-keep">{card.desc}</p>
+                <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-slate-800 mb-2 break-keep">{card.title}</h3>
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed break-keep">{card.desc}</p>
 
                 {/* 복원 카드에만 노출되는 하위 파이프라인 칩 */}
                 {card.chips && (
-                  <ul className="mt-4 flex flex-wrap gap-2" aria-label="하위 모델링 파이프라인">
+                  <ul className="mt-3 flex flex-wrap gap-2" aria-label="하위 모델링 파이프라인">
                     {card.chips.map((chip) => (
                       <li
                         key={chip}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${style.chipBg} ${style.chipText}`}
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${style.chipBg} ${style.chipText}`}
                       >
                         {chip}
                       </li>
@@ -150,6 +154,7 @@ export default function FeaturesSection() {
             </Reveal>
           )
         })}
+        </div>
       </div>
     </section>
   )

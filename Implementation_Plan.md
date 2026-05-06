@@ -121,10 +121,16 @@
 - [ ] 반응형 전면 검증 (Mobile/Tablet/Desktop)
 - [ ] 접근성(a11y) 감사 (키보드 내비게이션 포커스 복원)
 - [ ] 다크 모드 지원
+- [x] **(2026-05-06)** 브라우저 탭 favicon — 자체 로고 그래픽(텍스트 제외)을 ico/PNG 다중 사이즈로 등록(`frontend/public/favicon.ico` + `favicon-{16,32,192,512}.png` + `apple-touch-icon.png`), `index.html` link 5줄 등록
+- [x] **(2026-05-06, R19 후속)** favicon 흰색 원 배경 추가 — 다크 탭/작은 사이즈 시인성 보강. 512×512 master 캔버스에 `FillEllipse` 흰 원 + inscribed 사각형 92% 기준 로고 재배치 + 모든 ico/PNG 갱신
 
 ---
 
 ## Revision History
+
+### v5.1_260506 (작성자: @youminsu0523 / branch: main)
+- **R19 (5/6)** Landing 탭 favicon 일원화 — 누락된 `/drone-icon.svg` 참조 제거 후 ico+PNG 다중 등록. PowerShell + System.Drawing 알파 row 스캔으로 로고 PNG의 graphic/text 자동 분리(graphic = rows 59–252, cols 235–441). 정사각 캔버스(239×239) 가운데 배치 + 양쪽 16px 패딩. ICO 직접 바이너리 작성(ICONDIR + ICONDIRENTRY × 3 + 16/32/48 PNG payload)으로 32bpp 알파 보존. 배포 환경 globe 기본 favicon 이슈 해소.
+- **R23 (5/6, R19 후속)** favicon 흰 원 배경 + 로고 확대 — 다크 탭/작은 사이즈에서 어두운 푸른빛 로고가 묻히는 이슈 해결. master 사이즈 239 → 512 격상(다운샘플 안티앨리어싱 품질 향상), `FillEllipse(0,0,512,512)` 흰 원 배경, inscribed 사각형(=512/√2) 92% 기준(333×312)에 로고 aspect 보존 fit. 모든 사이즈(ico 16/32/48 + PNG 16/32/192/512 + apple-touch 180) 갱신 + 픽셀 검증으로 흰 원/투명/로고 색상 확인.
 
 ### v5.0_260503 (작성자: @youminsu0523 / branch: MS)
 - **R12 (5/3)** EmployeeLanding.jsx의 4개 MOCK_* const(`MOCK_TODAY_SCHEDULE`, `MOCK_TEAM_MEMBERS`, `MOCK_MONTHLY_KPI`, `MOCK_RECENT_ACTIVITIES`) 완전 삭제 + axios 병렬 fetch (`/api/v1/employee/schedule/today`, `/employee/kpi/monthly`, `/employee/activities`, `/organizations/members`)

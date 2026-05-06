@@ -235,6 +235,10 @@ frontend/src/
 
 ## Revision History
 
+### v5.1_260506 (작성자: @youminsu0523 / branch: main)
+- **R19 (5/6)** 브라우저 탭 favicon = 자체 로고 그래픽만 적용. `frontend/public/`에 favicon.ico(16/32/48 다중 entry) + favicon-{16,32,192,512}.png + apple-touch-icon.png(180×180) 신규 생성. `index.html` 의 누락 자산 참조 `/drone-icon.svg` 1줄 → ico/PNG 5줄 명시 등록으로 교체. 로고 원본 `logo_transparent-removebg-preview.png`(677×369)에서 알파 row 자동 스캔으로 graphic 영역(rows 59–252, cols 235–441) 검출 → 정사각 캔버스 가운데 배치(텍스트 "DRONE INSPECT / PRECISION DEFECT ANALYSIS" 제외). 배포 사이트 globe 기본 favicon 문제 해소.
+- **R23 (5/6, R19 후속)** favicon 시인성 보강 — 다크 탭/작은 사이즈에서 푸른빛 로고가 어둡게 묻히는 이슈 해결. 512×512 master 캔버스에 흰색 원 배경(`FillEllipse(0,0,512,512)`) + inscribed 정사각형 92% 기준(333×312) 가운데 로고 재배치(R19 의 239 master → 512 master 격상으로 안티앨리어싱 품질 향상). 모든 사이즈(ico 16/32/48 + PNG 16/32/192/512 + apple-touch 180) 흰 원 배경 버전으로 재생성. 픽셀 검증으로 흰 원/투명/로고 색상 모두 확인.
+
 ### v5.0_260503 (작성자: @youminsu0523 / branch: MS)
 - **R10 (4/29)** OAuth 콜백 + AdminMembers UX 보강 — 3개 provider(Google/Kakao/Naver) 단일 OAuthCallback로 수렴, AdminMembers의 슈퍼어드민/조직 admin 분기 + 부서 관리 + 초대 코드 만료 표시.
 - **R11 (5/2)** Signup.jsx — 약관 동의 분리, 사업자 회원 분기, 사업자등록번호 검증 흐름.

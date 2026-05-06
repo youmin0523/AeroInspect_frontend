@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Power, PowerOff, RefreshCw, Cpu, AlertTriangle, Clock, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Power, PowerOff, RefreshCw, Cpu, Clock, RotateCcw } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
@@ -44,8 +44,9 @@ const krwFromUsd = (usd) => Math.round(usd * USD_TO_KRW)
 
 export default function AdminGpu() {
   const navigate = useNavigate()
-  const { token, user } = useAuthStore()
-  const isSuperadmin = user?.is_superadmin
+  const { token, user, currentOrg } = useAuthStore()
+  // 1차 배포: 모든 직원이 status/start/stop 사용. 누적 리셋만 admin/owner/super.
+  const canReset = !!user?.is_superadmin || (currentOrg && ['owner', 'admin'].includes(currentOrg.role))
 
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -70,11 +71,10 @@ export default function AdminGpu() {
   }, [headers])
 
   useEffect(() => {
-    if (!isSuperadmin) return
     fetchStatus()
     pollTimerRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS)
     return () => clearInterval(pollTimerRef.current)
-  }, [fetchStatus, isSuperadmin])
+  }, [fetchStatus])
 
   const handleStart = async () => {
     setBusy(true)
@@ -143,21 +143,6 @@ export default function AdminGpu() {
     }
   }
 
-  if (!isSuperadmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-sm p-8 max-w-md text-center">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-slate-900 mb-2">접근 권한 없음</h2>
-          <p className="text-sm text-gray-500 mb-6">GPU 제어는 플랫폼 슈퍼어드민 전용입니다.</p>
-          <button onClick={() => navigate('/employee')} className="px-4 py-2 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 transition">
-            대시보드로 돌아가기
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   const currentStatus = status?.status
   const isRunning = currentStatus === 'RUNNING'
   const isTransitioning = currentStatus === 'STAGING' || currentStatus === 'PROVISIONING' || currentStatus === 'STOPPING'
@@ -178,7 +163,9 @@ export default function AdminGpu() {
               GCP L4 GPU VM (drone-stream-api) — 점검 시작 전 켜고, 종료 후 정지하세요.
             </p>
           </div>
-          <span className="inline-block text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">슈퍼어드민</span>
+          {canReset && (
+            <span className="inline-block text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">관리자</span>
+          )}
         </div>
 
         {error && (
@@ -236,16 +223,18 @@ export default function AdminGpu() {
             <div className="p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-between mb-1">
                 <div className="text-xs text-gray-400">
-                  이번 달 누적{monthInfo?.periodLabel ? ` (${monthInfo.periodLabel})` : ''}
+                  이번 달 누적{monthInfo?.periodLabel ? ` (${monthInfo.periodLabel})` : ''} · 서버 전체 합계
                 </div>
-                <button
-                  onClick={() => setConfirmAction('reset')}
-                  disabled={resetting || !monthInfo}
-                  title="누적 초기화 — 이 시점 이후로 다시 카운트"
-                  className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 disabled:opacity-40"
-                >
-                  <RotateCcw className={`w-3 h-3 ${resetting ? 'animate-spin' : ''}`} />
-                </button>
+                {canReset && (
+                  <button
+                    onClick={() => setConfirmAction('reset')}
+                    disabled={resetting || !monthInfo}
+                    title="누적 초기화 — 이 시점 이후로 다시 카운트 (관리자 전용)"
+                    className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  >
+                    <RotateCcw className={`w-3 h-3 ${resetting ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
               </div>
               {monthInfo ? (
                 <>

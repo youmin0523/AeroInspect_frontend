@@ -8,7 +8,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import {
-  FlaskConical, Upload, Trash2, FolderOpen, Check, Loader2,
+  Camera, FlaskConical, Upload, Trash2, FolderOpen, Check, Loader2,
   Database, HardDrive, Play, Pause, Square, Box, ScanSearch,
 } from 'lucide-react'
 import useSessionStore from '../../store/sessionStore.js'
@@ -146,15 +146,16 @@ export default function TestModeBar() {
 
   return (
     <div className="absolute top-[56px] left-0 right-0 z-20 flex items-center justify-center px-5 py-2 pointer-events-none">
-      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-neutral-900/80 border border-red-500/40 backdrop-blur-sm shadow-lg pointer-events-auto">
+      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-neutral-900/80 border border-blue-500/40 backdrop-blur-sm shadow-lg pointer-events-auto">
 
-        {/* TEST MODE 라벨 */}
+        {/* 1차 배포: 영상 수신기 미도착으로 testMode 를 "현장 점검" 으로 위장 노출.
+            수신기 도착 후 라벨/색상/아이콘 원복: Camera→FlaskConical, blue→red, "현장 점검"→"Test Mode" */}
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-red-500 rounded-md">
-            <FlaskConical size={12} className="text-white" />
+          <div className="p-1 bg-blue-600 rounded-md">
+            <Camera size={12} className="text-white" />
           </div>
-          <span className="text-[11px] font-bold tracking-wider text-red-400 uppercase">
-            Test Mode
+          <span className="text-[11px] font-bold tracking-wider text-blue-300">
+            현장 점검
           </span>
         </div>
 

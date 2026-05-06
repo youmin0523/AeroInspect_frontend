@@ -61,44 +61,50 @@ const ACCENT_STYLES = {
 
 export default function ServiceIntroSection() {
   return (
-    <section id="intro" className="pb-24 scroll-mt-20 md:scroll-mt-24">
+    <section id="intro" className="min-h-[calc(100vh-5rem)] md:min-h-[calc(100vh-6rem)] flex flex-col scroll-mt-20 md:scroll-mt-24">
       {/* 다크 배너 — 섹션 헤드라인 */}
-      <div className="bg-slate-900 text-white py-20 px-8 text-center mb-16">
-        <h2 className="text-3xl md:text-4xl font-bold mb-4">DRONE INSPECT가 만드는 변화</h2>
-        <p className="text-gray-400 text-base md:text-lg">
+      {/* //* [Modified Code] 모바일에서 padding 과도 → 기본 py-14 px-6, 단계 상승 */}
+      <div className="bg-slate-900 text-white py-14 sm:py-20 md:py-24 lg:py-28 px-6 sm:px-8 text-center">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 md:mb-5 break-keep">DRONE INSPECT가 만드는 변화</h2>
+        <p className="text-gray-400 text-base sm:text-lg md:text-xl lg:text-2xl break-keep">
           기존 점검 방식의 위험과 한계를 첨단 공간 데이터 기술로 해결합니다.
         </p>
       </div>
 
-      {/* 3개 가치 카드 */}
-      <div className="max-w-7xl mx-auto px-6 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* 3개 가치 카드 — flex-1 + items-center 로 잔여 viewport 영역 위/아래 대칭 분배 */}
+      <div className="flex-1 flex items-center py-12 md:py-14 lg:py-16">
+        {/* //* [Modified Code] 태블릿(md~lg) 2열 시 마지막 카드는 2칸 차지 + 내부에서 데스크탑과 동일한 카드 폭으로 가운데 정렬 */}
+        <div className="max-w-7xl w-full mx-auto px-6 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7 lg:gap-8">
         {VALUE_CARDS.map((card, idx) => {
           const style = ACCENT_STYLES[card.accent]
+          const isOrphanLastOnTablet = idx === VALUE_CARDS.length - 1 && VALUE_CARDS.length % 2 === 1
           return (
-            <Reveal key={card.tag} delay={idx * 120}>
+            <Reveal key={card.tag} delay={idx * 120} className={isOrphanLastOnTablet ? 'md:col-span-2 lg:col-span-1 md:max-w-[calc(50%-0.875rem)] md:mx-auto lg:max-w-none' : ''}>
               <article
                 className={`group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 h-full ${style.topBorder}`}
               >
-                <div className={`h-24 flex items-center justify-center transition ${style.panelBg}`}>
+                <div className={`h-24 sm:h-28 md:h-36 lg:h-40 flex items-center justify-center transition px-3 ${style.panelBg}`}>
+                  {/* //* [Modified Code] 가장 긴 "BLIND SPOT ZERO"가 작은 폰에서 깨지지 않도록 모바일 한 단계 작게 + tracking 축소 */}
                   <span
-                    className={`font-black text-xl md:text-2xl tracking-[0.06em] bg-clip-text text-transparent ${style.kickerGradient} ${style.kickerStroke}`}
+                    className={`font-black text-xl sm:text-2xl md:text-3xl lg:text-4xl tracking-[0.04em] sm:tracking-[0.06em] bg-clip-text text-transparent text-center ${style.kickerGradient} ${style.kickerStroke}`}
                   >
                     {card.kicker}
                   </span>
                 </div>
-                <div className="p-6">
+                <div className="p-6 md:p-7 lg:p-8">
                   <span
-                    className={`text-xs font-bold px-2 py-1 rounded mb-3 inline-block ${style.tagBg} ${style.tagText}`}
+                    className={`text-xs md:text-sm font-bold px-2 py-1 rounded mb-3 inline-block ${style.tagBg} ${style.tagText}`}
                   >
                     {card.tag}
                   </span>
-                  <h3 className="text-xl font-bold text-slate-800 mb-2 break-keep">{card.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed break-keep">{card.desc}</p>
+                  <h3 className="text-xl md:text-2xl font-bold text-slate-800 mb-2 md:mb-3 break-keep">{card.title}</h3>
+                  <p className="text-gray-600 text-sm md:text-base lg:text-lg leading-relaxed break-keep">{card.desc}</p>
                 </div>
               </article>
             </Reveal>
           )
         })}
+        </div>
       </div>
     </section>
   )

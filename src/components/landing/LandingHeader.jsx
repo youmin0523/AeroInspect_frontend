@@ -90,7 +90,7 @@ export default function LandingHeader() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 grid grid-cols-[auto_1fr_auto] items-center px-6 md:px-8 py-2 transition-colors duration-300 ${headerBgClass}`}
+      className={`fixed top-0 left-0 right-0 z-50 grid grid-cols-[auto_1fr_auto] items-center px-4 sm:px-6 md:px-8 py-2 transition-colors duration-300 ${headerBgClass}`}
     >
       {/* 로고 */}
       <Link
@@ -99,18 +99,19 @@ export default function LandingHeader() {
         aria-label="DRONE INSPECT 홈"
         className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
       >
-        {/* //* [Modified Code] 상태에 따라 흰/네이비 로고 스왑 */}
+        {/* //* [Modified Code] 상태에 따라 흰/네이비 로고 스왑 + 소형 폰에선 약간 축소 */}
         <img
           src={isAtTop ? logoWhite : logoDark}
           alt="DRONE INSPECT"
-          className="h-16 md:h-[5rem] w-auto object-contain transition-opacity duration-300"
+          className="h-14 sm:h-16 md:h-[4.5rem] lg:h-[5rem] w-auto object-contain transition-opacity duration-300"
         />
       </Link>
 
       {/* 주 메뉴 (데스크탑) — 로그인 시 "직원 전용"이 네비 링크에 합류하여 중앙 정렬 */}
+      {/* //* [Modified Code] 태블릿(md~lg)은 햄버거 사용 → 데스크탑 네비는 lg부터 노출 */}
       <nav
         aria-label="주 메뉴"
-        className="hidden md:flex justify-center space-x-10 font-semibold text-base lg:text-lg"
+        className="hidden lg:flex justify-center space-x-10 font-semibold text-lg xl:text-xl"
       >
         {NAV_LINKS.map((link) => (
           <a
@@ -146,7 +147,7 @@ export default function LandingHeader() {
           <button
             type="button"
             onClick={() => useAuthStore.getState().logout()}
-            className={`hidden md:inline-block px-4 py-2 rounded-md font-semibold text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+            className={`hidden lg:inline-block px-4 py-2 rounded-md font-semibold text-base transition focus:outline-none focus:ring-2 focus:ring-blue-400 ${
               isAtTop
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
                 : 'text-gray-600 hover:text-red-600 hover:bg-gray-100'
@@ -157,7 +158,7 @@ export default function LandingHeader() {
         ) : (
           <Link
             to="/login"
-            className={`hidden md:inline-block px-4 py-2 rounded-md font-semibold text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+            className={`hidden lg:inline-block px-4 py-2 rounded-md font-semibold text-base transition focus:outline-none focus:ring-2 focus:ring-blue-400 ${
               isAtTop
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -172,7 +173,7 @@ export default function LandingHeader() {
         <button
           type="button"
           onClick={handleContactOpen}
-          className={`hidden md:block px-5 py-2.5 rounded-md font-semibold transition shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+          className={`hidden lg:block px-5 py-2.5 rounded-md font-semibold text-base xl:text-lg transition shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 ${
             isAtTop
               ? 'bg-blue-600/90 hover:bg-blue-600 text-white backdrop-blur-sm'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -181,8 +182,8 @@ export default function LandingHeader() {
           도입 문의하기
         </button>
 
-        {/* 햄버거 버튼 (모바일) */}
-        <div className="relative md:hidden" ref={mobileMenuRef}>
+        {/* 햄버거 버튼 (모바일/태블릿) */}
+        <div className="relative lg:hidden" ref={mobileMenuRef}>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}

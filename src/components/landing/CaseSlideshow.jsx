@@ -48,14 +48,14 @@ export default function CaseSlideshow({ images, placeholder, interval = 4000, st
 
   if (!images || images.length === 0) {
     return (
-      <div className="h-48 bg-slate-200 flex items-center justify-center text-gray-500 group-hover:bg-slate-300 transition">
+      <div className="h-36 sm:h-40 md:h-44 lg:h-44 bg-slate-200 flex items-center justify-center text-gray-500 group-hover:bg-slate-300 transition">
         {placeholder}
       </div>
     )
   }
 
   return (
-    <div className="relative h-48 overflow-hidden bg-slate-900">
+    <div className="relative h-36 sm:h-40 md:h-44 lg:h-44 overflow-hidden bg-slate-900">
       {images.map((src, i) => (
         <img
           key={src}
