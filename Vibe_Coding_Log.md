@@ -2513,3 +2513,40 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - 거짓 응답 가속화 사고 없음 — 모든 변경이 시각화/네트워크 워밍 영역. 검출/추론 결과 정확도엔 영향 0.
 - 워밍 핑 자체는 backend 부하 미미(빈 GET 응답). 12 retry × 5s 도 머신이 살아있으면 200 한 번씩만 응답.
+
+---
+
+## 🎯 R30 — 체감 속도 측정 도구 + delayed spinner + 클라이언트 압축 + upload progress (2026-05-07 20:00)
+
+> 사용자 피드백: "구글/네이버/쿠팡은 '로그인 중' 문구가 뜨기도 전에 로그인 완료. 영상 업로드도 사용자 대기 최소화. 도구 붙여서 테스트 진행." 통합 repo R35 작업물 동기화.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R30.1 | 2026-05-07 20:00 | **perfTimer 유틸** — `perfStart/perfEnd(label)` + sessionStorage 누적 + window 이벤트. Performance API 기반 ms 측정. | utils/perfTimer.js |
+| R30.2 | 2026-05-07 20:00 | **PerfTimerWidget** — 화면 우하단 측정 표시 (`?perf=1` 활성). 운영에 박혀 있어도 일반 사용자엔 안 보임. 노션 동기화용 스크린샷 캡처 시 측정값 그대로 첨부 가능. | components/dev/PerfTimerWidget.jsx, App.jsx |
+| R30.3 | 2026-05-07 20:00 | **Login delayed spinner (300ms)** — `loading=true` 후 300ms 이내 응답이면 "로그인 중..." 안 띄움. 머신 깨어있는 정상 케이스(~100-200ms)에선 사용자 체감 = 즉시 로그인 완료. 구글/네이버 패턴. | Login.jsx |
+| R30.4 | 2026-05-07 20:00 | **클라이언트 이미지 다운샘플 (4K → 1280)** — canvas drawImage + JPEG 0.85. 사이즈 80~95% 절감. 영상은 그대로(ffmpeg.wasm은 ROI 낮음). | utils/imageDownsample.js |
+| R30.5 | 2026-05-07 20:00 | **uploadWithProgress XHR 유틸** — fetch는 upload progress 표준 미지원. XMLHttpRequest .upload.onprogress로 percent/speedKbps/etaSeconds 실시간 제공. | utils/uploadWithProgress.js |
+| R30.6 | 2026-05-07 20:00 | **Dashboard 드래그앤드랍 + TestModeBar 파일첨부** 강화 — 다운샘플 + progress + perf 통합. dropzone 오버레이에 진행률 바 + 속도 + ETA + 압축 효과 실시간. | Dashboard.jsx, TestModeBar.jsx |
+
+### 📐 설계 결정
+
+- **Delayed spinner — 구글/네이버 패턴**: 사용자 체감 속도의 본질은 응답 시간이 아니라 "기다림 인지 시간". 300ms 이내면 spinner 자체를 안 띄워서 인지 시간 0. 응답이 느릴 때만 시각적 피드백.
+- **이미지만 다운샘플 / 영상은 그대로**: ffmpeg.wasm은 ~30MB 다운로드 + 초기 로딩 무거워 단발 ROI 낮음. 이미지는 canvas 네이티브 리사이즈로 가볍고 빠름. 1280 long-edge는 M1/M2/M3 YOLO 학습 imgsz(640~1024) 대비 충분.
+- **XHR vs fetch — upload progress**: fetch는 ReadableStream 우회로 가능하지만 호환성 X. XHR `.upload.onprogress`는 표준 + 100% 호환.
+- **perf 위젯 활성화 — query param + localStorage**: 운영 배포에 박혀 있어도 일반 사용자엔 안 보이게 + 개발자/QA는 즉시 활성화.
+
+### 🚨 안전성 영향
+
+- 검출 정확도 영향 0 — 이미지 다운샘플은 클라이언트 측 시각 자료에만 적용.
+- 1280 long-edge는 학습 imgsz 대비 충분 — 모델 입력 단계에서 다시 letterbox.
+- delayed spinner는 시각적 변경뿐 — 응답 시간이 1.5초 넘어가면 정상적으로 "로그인 중..." 표시.
+- 압축 후 SVG/HEIC/손상 파일은 원본 그대로 통과 — 데이터 손실 없음.
+
+### 📊 측정 라벨 (`?perf=1` 위젯)
+
+- `login` (목표: <300ms로 spinner 안 뜨기)
+- `dashboard-warm-root`, `dashboard-warm-init` (콜드 스타트 진단)
+- `upload-downsample`, `upload-network`, `upload-total`

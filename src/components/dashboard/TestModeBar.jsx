@@ -13,6 +13,9 @@ import {
 } from 'lucide-react'
 import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
+import { perfStart, perfEnd } from '../../utils/perfTimer'
+import { maybeDownsampleAll } from '../../utils/imageDownsample'
+import { uploadWithProgress } from '../../utils/uploadWithProgress'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -29,6 +32,7 @@ export default function TestModeBar() {
 
   const [uploadedCount, setUploadedCount] = useState(0)
   const [uploading, setUploading] = useState(false)
+  const [uploadPct, setUploadPct] = useState(0)
   const [switchingSource, setSwitchingSource] = useState(false)
 
   const isUploadMode = testSource === 'upload'
@@ -114,23 +118,41 @@ export default function TestModeBar() {
     }
   }, [testSource, setTestSource, switchingSource, resetTestGate])
 
-  // 파일 업로드
+  // 파일 업로드 — 클라이언트 다운샘플 + progress + perf 측정
   const handleFileChange = useCallback(async (e) => {
     const files = e.target.files
     if (!files || files.length === 0) return
     setUploading(true)
-    const formData = new FormData()
-    for (let i = 0; i < files.length; i++) formData.append('files', files[i])
+    setUploadPct(0)
+    perfStart('upload-total')
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'POST', body: formData })
-      if (res.ok) {
-        const data = await res.json()
-        setUploadedCount(data.total_uploaded || 0)
+      // 0) 이미지 다운샘플 (4K → 1280) — 영상은 그대로
+      perfStart('upload-downsample')
+      const processed = await maybeDownsampleAll(files)
+      perfEnd('upload-downsample')
+
+      // 1) progress 추적 업로드
+      perfStart('upload-network')
+      const formData = new FormData()
+      processed.forEach((f) => formData.append('files', f))
+      const res = await uploadWithProgress(
+        `${API_BASE}/api/v1/stream/test/upload`,
+        formData,
+        (p) => setUploadPct(p.percent),
+      )
+      perfEnd('upload-network', { status: res.status })
+      if (res.status < 400 && res.body) {
+        setUploadedCount(res.body.total_uploaded || 0)
+        perfEnd('upload-total', { ok: true })
+      } else {
+        perfEnd('upload-total', { ok: false })
       }
     } catch (err) {
       console.warn('[TestMode] 업로드 실패:', err)
+      perfEnd('upload-total', { ok: false, err: err.message })
     } finally {
       setUploading(false)
+      setUploadPct(0)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }, [])
@@ -306,7 +328,7 @@ export default function TestModeBar() {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-800 border border-neutral-600 hover:border-red-500/50 hover:bg-neutral-700 text-slate-300 hover:text-white transition text-[11px] font-mono"
               >
                 {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                {uploading ? '업로드 중...' : '파일 첨부'}
+                {uploading ? `업로드 중 ${uploadPct}%` : '파일 첨부'}
               </button>
               {uploadedCount > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-800/60 border border-neutral-700">

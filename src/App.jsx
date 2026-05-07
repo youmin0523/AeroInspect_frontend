@@ -31,6 +31,7 @@ import Onboarding from './pages/employee/Onboarding.jsx'
 import OrgRequired from './components/auth/OrgRequired.jsx'
 import FloatingChatButton from './components/chat/FloatingChatButton.jsx'
 import ChatRealtimeListener from './components/chat/ChatRealtimeListener.jsx'
+import PerfTimerWidget from './components/dev/PerfTimerWidget.jsx'
 import useChatStore from './store/chatStore.js'
 
 /** employee 경로에서만 Floating Chat Button 표시 */
@@ -128,6 +129,7 @@ export default function App() {
       <DocumentTitleBadge />
       <ChatRealtimeListener />
       <GlobalFloatingChat />
+      <PerfTimerWidget />
       <Routes>
         {/* 공개 라우트 */}
         <Route path="/" element={<Landing />} />

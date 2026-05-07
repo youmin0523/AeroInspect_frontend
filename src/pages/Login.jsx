@@ -11,6 +11,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { login as loginApi, getGoogleAuthUrl, getKakaoAuthUrl, getNaverAuthUrl } from '../api/authApi'
 import useAuthStore from '../store/authStore'
+import { perfStart, perfEnd } from '../utils/perfTimer'
 import logoDark from '../assets/logo/logo_transparent-removebg-preview.png'
 
 // 탭 구성
@@ -59,8 +60,18 @@ export default function Login() {
   const [form, setForm] = useState({ bizNumber: '', userId: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // delayed spinner — loading 시작 후 300ms 이내에 끝나면 아예 안 보임.
+  // 구글/네이버처럼 빠른 응답엔 spinner 안 뜨고, 느린 응답에만 사용자에게 알림.
+  // 머신이 깨어있는 정상 케이스(~100-200ms)에선 사용자 체감 = "즉시 로그인 완료".
+  const [spinnerVisible, setSpinnerVisible] = useState(false)
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
+
+  useEffect(() => {
+    if (!loading) { setSpinnerVisible(false); return }
+    const t = setTimeout(() => setSpinnerVisible(true), 300)
+    return () => clearTimeout(t)
+  }, [loading])
 
   // 마지막으로 사용한 로그인 방법 (가입자가 다른 방식으로 새 가입하는 사고 방지용 가이드)
   const [lastLoginMethod] = useState(() => localStorage.getItem('last_login_method'))
@@ -120,12 +131,15 @@ export default function Login() {
     }
 
     setLoading(true)
+    perfStart('login')
     try {
       const res = await loginApi(form.userId, form.password)
       const { access_token, refresh_token, user } = res.data
       setAuth(access_token, user, refresh_token, 'local')
+      perfEnd('login', { ok: true })
       navigate('/')
     } catch (err) {
+      perfEnd('login', { ok: false })
       setError(err.response?.data?.detail || '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
@@ -263,7 +277,9 @@ export default function Login() {
               lastLoginMethod === 'local' ? 'ring-2 ring-blue-500 ring-offset-2' : ''
             }`}
           >
-            {loading ? '로그인 중...' : '로그인'}
+            {/* delayed spinner: 300ms 이내 응답이면 "로그인 중..." 안 뜸 (구글/네이버 패턴).
+                머신 깨어있는 정상 케이스(~100-200ms)에선 사용자 체감 = 즉시 로그인 완료. */}
+            {spinnerVisible ? '로그인 중...' : '로그인'}
             {lastLoginMethod === 'local' && (
               <span className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-full leading-none shadow">
                 최근
