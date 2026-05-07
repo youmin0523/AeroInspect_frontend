@@ -2434,3 +2434,26 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **/employee 가 아닌 /employee/dashboard 등으로 가지 않은 이유**: `EmployeeLanding.jsx` 가 `/employee` 의 진입 페이지로 사무실 허브 역할(스케줄/KPI/활동/관리). 이게 가장 "허브" 의미에 부합. 추후 사용자가 "더 구체적인 페이지로" 를 원하면 별도 round.
 - **모바일 hover 클래스의 의미**: 터치 디바이스에서 `hover:` 가 발화되지 않지만, `cursor-pointer` 와 `transition` 은 데스크탑/태블릿 마우스 사용자에게 클릭 가능 어포던스 제공. 모바일은 어차피 탭 시 즉시 동작하므로 시각적 피드백 부재가 UX 손상 아님.
 
+
+
+---
+
+### R30 — git hook 활성화 (Vibe 로그 강제 + Conventional Commits) (2026-05-07 13:30)
+
+> 통합 repo 의 R32 작업 후, 분리 repo 에도 동일 정책을 적용하기 위한 hook 도입.
+> 각 repo 의 .githooks/ 는 독립 working tree 라 중복처럼 보여도 git 표준 패턴 (husky / lefthook / pre-commit 도 동일).
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R-hooks.1 | 2026-05-07 13:30 | .githooks/pre-commit — 코드 변경 시 Vibe_Coding_Log.md 갱신 강제 | .githooks/pre-commit |
+| R-hooks.2 | 2026-05-07 13:30 | .githooks/commit-msg — Conventional Commits 강제 (12 types, 한국어 가이드) | .githooks/commit-msg |
+| R-hooks.3 | 2026-05-07 13:30 | tools/setup-githooks.sh + .ps1 — core.hooksPath=.githooks 활성화 + 다른 repo 배포 옵션 | tools/setup-githooks.{sh,ps1} |
+| R-hooks.4 | 2026-05-07 13:30 | docs/git-hooks.md — 사용법/우회/트러블슈팅 가이드 | docs/git-hooks.md |
+| R-hooks.5 | 2026-05-07 13:30 | core.hooksPath = .githooks 활성화 | (.git/config) |
+
+### 📐 설계 결정
+
+- 각 repo .githooks/ 중복은 git 표준 패턴. submodule / 사내 패키지 / home 공용 hooks 는 모두 무거움.
+- 통합 repo → 분리 repo 동기화: tools/setup-githooks.sh 가 분리 repo 경로를 인자로 받아 자동 복사 + 활성화.
+- 우회: SKIP_VIBE_LOG_CHECK=1 / SKIP_COMMIT_MSG_CHECK=1 (긴급용, 사후 보강).
+- MS 브랜치까지만 작업 commit. develop / main / 배포는 사용자 명시 시점.
