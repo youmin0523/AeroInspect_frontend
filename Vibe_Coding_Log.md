@@ -2485,3 +2485,31 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **워밍 핑 root `/` 사용**: `{"status":"ok"}` 만 반환하는 가장 가벼운 엔드포인트. `/health` 는 모델 상태/카메라까지 검사해서 무겁고 503 가능성도 있어 워밍용 부적합.
 - **fire-and-forget 패턴**: `.catch(() => {})` 로 실패해도 무시. 워밍 목적이라 응답 결과 사용 안 함, 콘솔 노이즈/UX 영향 0.
 - **min_machines_running 안 건드림**: Fly 1GB 머신은 무료 한도 초과 가능성 → 비용 발생 우려. 사용자 명시 결정 필요. 워밍 핑만으로도 첫 로그인 체감속도 5~10초 단축 예상.
+
+---
+
+## 🎯 R29 — 체감 속도 + 드래그앤드랍 + onError 자동 retry (2026-05-07 19:00)
+
+> 사용자 피드백: "전체적으로 체감 속도가 너무 느리다. 로그인 최초 10초+, 업로드/재생도 마찬가지. 다른 플랫폼 가면 된다는 생각이 드는 순간 망한 거다. 사용자 기다림 최소화. 드래그앤드랍도 가능하게." 통합 repo R-postdeploy.12 + R34 작업물 동기화.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R29.1 | 2026-05-07 19:00 | **HTML preconnect / dns-prefetch** — `index.html` 에 backend 도메인(aeroinspect-backend.fly.dev) 등록. 브라우저가 페이지 로드 즉시 DNS resolve + TCP/TLS handshake 미리 완료 → 첫 fetch가 ~200-500ms 더 빠름. | index.html |
+| R29.2 | 2026-05-07 19:00 | **Login 다층 워밍 (mount + 5s + 12s + onFocus)** — 단발 워밍은 사용자가 빠르게 입력+제출 시 같은 부팅 큐에 합류해 콜드 비용을 그대로 부담. 3-tier 시간 + input focus 추가 핑으로 부팅 완료 시점을 사용자 인지 시간 안에 확실히 끌어들임. 영구 polling은 안 함 (비용 제어). | Login.jsx |
+| R29.3 | 2026-05-07 19:00 | **Dashboard mount 시 `/test/init` 사전 호출** — backend 워밍 + ONNX 11모델 로드를 dashboard 진입 즉시 백그라운드에 트리거. 사용자가 START 누를 시점엔 이미 모델 준비 완료 상태 → 첫 frame 즉시 흐름. fire-and-forget. | Dashboard.jsx |
+| R29.4 | 2026-05-07 19:00 | **드래그앤드랍 업로드 + 자동 재생** — Dashboard 전역 dragenter/over/drop 리스너. drop 시 (1) source='upload' 자동 전환 → (2) /test/upload 업로드 → (3) /test/start 자동 호출까지 일괄. 시각적 dropzone 오버레이 (드래그 중/업로드 중 노출). 파일 첨부 버튼 동선 클릭 0회로 단축. | Dashboard.jsx |
+| R29.5 | 2026-05-07 19:00 | **`<img>` onError 자동 재시도 (5초 × 12회 = 60초)** — Fly.io 콜드 스타트 + 11모델 로드(~25-40초) 동안 backend 응답 못해 onError → hasError 영구 고정. 사용자 클릭 없이도 머신 깨어나면 자연 연결. MAX_RETRIES=12 로 무한 retry 차단. | LiveVideoFeed.jsx |
+
+### 📐 설계 결정
+
+- **다층 워밍 vs min_machines_running=1 비용 결정**: 후자가 가장 직접적이지만 비용 발생. 메모리 룰 [project_aws_free_tier], [project_deadline] 상황 고려해 무비용 다층 워밍으로 우회. 사용자 명시 시점에 비용 정책 변경 가능.
+- **드래그앤드랍 자동 START — 사용자 제어 vs UX 단축 trade-off**: drop 시 자동으로 START 까지 호출. 사용자 의도 명시("드래그앤드랍 가능했으면") 가 동선 단축이라 STOP 제어는 명시적 STOP 버튼 유지. drop 만으로 즉시 검증 가능한 흐름 확보.
+- **window 전역 리스너 vs 컴포넌트 로컬**: window 전역으로 두면 dashboard 어느 영역(영상/패널/사이드바)에 떨어뜨려도 동작. dragenter/leave 카운터 패턴(`dragCounterRef`)으로 child element 진입/이탈에 따른 깜빡임 방지.
+- **자동 retry 12회(60초) 상한**: 무한 재시도면 backend 가 진짜 죽었을 때 사용자가 영구 대기. 60초면 콜드 스타트 흡수에 충분 + 그 이후 실패면 backend 측 진짜 장애로 명시 안내 가능.
+
+### 🚨 안전성 영향
+
+- 거짓 응답 가속화 사고 없음 — 모든 변경이 시각화/네트워크 워밍 영역. 검출/추론 결과 정확도엔 영향 0.
+- 워밍 핑 자체는 backend 부하 미미(빈 GET 응답). 12 retry × 5s 도 머신이 살아있으면 200 한 번씩만 응답.

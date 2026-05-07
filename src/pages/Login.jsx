@@ -65,12 +65,28 @@ export default function Login() {
   // 마지막으로 사용한 로그인 방법 (가입자가 다른 방식으로 새 가입하는 사고 방지용 가이드)
   const [lastLoginMethod] = useState(() => localStorage.getItem('last_login_method'))
 
-  // Fly.io auto_stop_machines 콜드 스타트 완화: 페이지 진입 시 root 핑으로 머신 미리 깨움.
-  // 사용자가 ID/PW 입력하는 동안 부팅이 진행되어 실제 로그인 요청은 따뜻한 머신을 만남.
+  // Fly.io auto_stop_machines 콜드 스타트 완화: 다층 워밍 전략.
+  // 1) mount 즉시 1회 — 페이지 진입 시점.
+  // 2) 5초/12초 후 추가 — 사용자가 머무는 동안 머신을 확실히 깨워둠.
+  //    backend 콜드 부팅이 ~10-15초 걸리므로 단발 워밍으로는 사용자가 빠르게 입력+제출 시
+  //    같은 부팅 큐에 합류해 콜드 비용을 그대로 부담. 다층 핑이 부팅 완료 시점을 사용자
+  //    인지 시간 안에 끌어들임. 3회면 충분 — 영구 polling 안 함(머신을 인위적으로
+  //    살리는 건 비용 발생 가능).
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || ''
-    fetch(`${apiBase}/`, { method: 'GET' }).catch(() => {})
+    const ping = () => fetch(`${apiBase}/`, { method: 'GET' }).catch(() => {})
+    ping()  // t=0
+    const t1 = setTimeout(ping, 5000)   // t=5s
+    const t2 = setTimeout(ping, 12000)  // t=12s
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
+
+  // input focus 시 추가 워밍 핑 — 사용자가 입력 시작 = 곧 제출. 가장 인간적 시점에 발화.
+  // 다층 워밍으로 머신이 이미 깨어있으면 무해(no-op 응답).
+  const handleInputFocus = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+    fetch(`${apiBase}/`, { method: 'GET' }).catch(() => {})
+  }
 
   const isBusiness = loginType === 'business'
 
@@ -198,6 +214,7 @@ export default function Login() {
                 id="bizNumber"
                 value={form.bizNumber}
                 onChange={(e) => updateField('bizNumber', e.target.value)}
+                onFocus={handleInputFocus}
                 placeholder="'-' 제외 10자리"
                 maxLength={10}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition"
@@ -214,6 +231,7 @@ export default function Login() {
               id="userId"
               value={form.userId}
               onChange={(e) => updateField('userId', e.target.value)}
+              onFocus={handleInputFocus}
               placeholder="아이디를 입력하세요"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition"
             />
@@ -228,6 +246,7 @@ export default function Login() {
               id="password"
               value={form.password}
               onChange={(e) => updateField('password', e.target.value)}
+              onFocus={handleInputFocus}
               placeholder="비밀번호를 입력하세요"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition"
             />

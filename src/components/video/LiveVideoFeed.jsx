@@ -122,7 +122,25 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     setHasError(false)
     setIsLoaded(false)
     setImgNatural(null)
+    setRetryCount(0)
   }, [displayUrl])
+
+  // ── onError 자동 재연결 ──────────────────────────
+  // Why: Fly.io 콜드 스타트 + 11 ONNX 모델 로드(~25-40초) 동안 backend 가 응답 못해
+  // `<img>` 가 onError → hasError=true 영구 고정 → 사용자가 "재연결" 클릭해야만 재시도.
+  // 머신이 깨어나기 전에 사용자가 떠나는 사고. 5초 간격 자동 재시도 + 최대 12회(=1분) 시도.
+  // 그 안에 backend 가 깨어나면 자연스럽게 연결됨.
+  const [retryCount, setRetryCount] = useState(0)
+  const MAX_RETRIES = 12  // 5s × 12 = 60s
+  useEffect(() => {
+    if (!hasError) return
+    if (retryCount >= MAX_RETRIES) return
+    const t = setTimeout(() => {
+      setHasError(false)
+      setRetryCount((c) => c + 1)
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [hasError, retryCount])
 
   // TEST MODE 게이트 fallback: playing 진입 후 5초 안에 첫 프레임 onLoad가 발화되지 않으면
   // 게이트를 강제로 열어 큐 잔존을 방지. 스트림 실패 시 디버깅 단서가 됨.

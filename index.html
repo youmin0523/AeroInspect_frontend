@@ -10,6 +10,11 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- Backend 콜드 스타트 완화: 페이지 로드 즉시 TCP/TLS 연결을 미리 맺어 둠.
+         Fly.io 머신 idle stop 후 첫 요청의 DNS resolve + TLS handshake 비용(~200-500ms)을
+         사용자가 ID/PW 입력하는 시간으로 흡수. 운영 backend 도메인 고정. -->
+    <link rel="preconnect" href="https://aeroinspect-backend.fly.dev" crossorigin />
+    <link rel="dns-prefetch" href="https://aeroinspect-backend.fly.dev" />
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <!-- Pretendard (한글·영문 일관성용) — 가변 폰트, 외부 의존성 1줄로 도입 -->
     <link rel="stylesheet" as="style" crossorigin

@@ -136,6 +136,86 @@ export default function Dashboard() {
     ? { w: MINIMAP_W_TABLET, h: MINIMAP_H_TABLET }
     : { w: MINIMAP_W, h: MINIMAP_H }
 
+  // ── Dashboard mount 시 백엔드 워밍 + 모델 사전 로드 ─────────────────────────
+  // Why: Fly.io idle stop 정책으로 머신 콜드 스타트 + ONNX 11모델 로드가 누적 25-40초.
+  // dashboard 진입 즉시 머신 auto_start + `/test/init` 호출로 모델 로드까지 백그라운드에
+  // 시작 → 사용자가 START 클릭할 시점엔 모델이 이미 준비되어 첫 frame이 즉시 흘러나옴.
+  // fire-and-forget. 멱등(`already_loaded` 반환). Login.jsx 워밍 핑과 동일 패턴.
+  useEffect(() => {
+    fetch(`${API_BASE}/`).catch(() => {})
+    fetch(`${API_BASE}/api/v1/stream/test/init`, { method: 'POST' }).catch(() => {})
+  }, [])
+
+  // ── 드래그앤드랍 업로드 + 자동 재생 ─────────────────────────
+  // Why: 파일 첨부 버튼만 있으면 클릭 동선이 길고, 사용자가 영상을 화면 어디에든 떨어뜨려
+  // 즉시 재생되길 기대. window 전체 dragover/drop 리스너로 dashboard 어느 영역에서든
+  // 받아 자동으로 (1) source='upload' 전환 → (2) 업로드 → (3) START 호출까지 일괄.
+  const [dragActive, setDragActive] = useState(false)
+  const [dropUploading, setDropUploading] = useState(false)
+  const dragCounterRef = useRef(0)
+  useEffect(() => {
+    const handleDragEnter = (e) => {
+      e.preventDefault()
+      if (!e.dataTransfer || !e.dataTransfer.types?.includes('Files')) return
+      dragCounterRef.current += 1
+      setDragActive(true)
+    }
+    const handleDragLeave = (e) => {
+      e.preventDefault()
+      dragCounterRef.current -= 1
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0
+        setDragActive(false)
+      }
+    }
+    const handleDragOver = (e) => {
+      e.preventDefault()  // drop 허용
+    }
+    const handleDrop = async (e) => {
+      e.preventDefault()
+      dragCounterRef.current = 0
+      setDragActive(false)
+      const files = e.dataTransfer?.files
+      if (!files || files.length === 0) return
+      // 이미지/영상만 필터
+      const accepted = Array.from(files).filter((f) =>
+        f.type.startsWith('image/') || f.type.startsWith('video/')
+      )
+      if (accepted.length === 0) return
+      setDropUploading(true)
+      try {
+        // 1) 업로드 모드 전환
+        await fetch(`${API_BASE}/api/v1/stream/test/source`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'upload' }),
+        }).catch(() => {})
+        // 2) 파일 업로드 (chunk 스트리밍은 backend 측 책임)
+        const formData = new FormData()
+        accepted.forEach((f) => formData.append('files', f))
+        const uploadRes = await fetch(`${API_BASE}/api/v1/stream/test/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+        if (!uploadRes.ok) return
+        // 3) 자동 START — 모델이 아직 로드 중이어도 backend 가 비동기로 처리, 영상은 즉시 흐름
+        await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' }).catch(() => {})
+      } finally {
+        setDropUploading(false)
+      }
+    }
+    window.addEventListener('dragenter', handleDragEnter)
+    window.addEventListener('dragleave', handleDragLeave)
+    window.addEventListener('dragover', handleDragOver)
+    window.addEventListener('drop', handleDrop)
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter)
+      window.removeEventListener('dragleave', handleDragLeave)
+      window.removeEventListener('dragover', handleDragOver)
+      window.removeEventListener('drop', handleDrop)
+    }
+  }, [])
+
   // ── 미니맵 확장 상태 ─────────────────────────
   const [minimapExpanded, setMinimapExpanded] = useState(false)
 
@@ -401,6 +481,29 @@ export default function Dashboard() {
       >
         {defectPanel}
       </aside>
+
+      {/* ── 드래그앤드랍 오버레이 (드래그 중 또는 업로드 중에만 노출) ── */}
+      {(dragActive || dropUploading) && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none bg-blue-950/70 backdrop-blur-sm"
+          style={{
+            outline: '4px dashed rgba(59, 130, 246, 0.7)',
+            outlineOffset: '-12px',
+          }}
+        >
+          <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl bg-neutral-900/90 border border-blue-500/60 shadow-2xl">
+            <div className="text-5xl">{dropUploading ? '⏳' : '📥'}</div>
+            <div className="text-lg font-semibold text-blue-200">
+              {dropUploading ? '업로드 중 — 곧 재생됩니다' : '여기에 영상/이미지를 떨어뜨려 주세요'}
+            </div>
+            <div className="text-xs font-mono text-slate-400">
+              {dropUploading
+                ? 'TEST MODE 자동 전환 + 업로드 + 자동 재생'
+                : 'image/* · video/* 지원 · 다중 파일 가능'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
