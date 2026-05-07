@@ -2457,3 +2457,31 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 통합 repo → 분리 repo 동기화: tools/setup-githooks.sh 가 분리 repo 경로를 인자로 받아 자동 복사 + 활성화.
 - 우회: SKIP_VIBE_LOG_CHECK=1 / SKIP_COMMIT_MSG_CHECK=1 (긴급용, 사후 보강).
 - MS 브랜치까지만 작업 commit. develop / main / 배포는 사용자 명시 시점.
+
+
+
+---
+
+### R31 — 1차 배포 후속 보완: 사업자번호 모바일 + 객체감지 SVG 오버레이 + 콜드 스타트 워밍 핑 (2026-05-07 17:00)
+
+> 1차 배포(2026-05-06) 후 실사용 피드백 3건 일괄 보강.
+> 통합 repo 의 R30(객체감지 시퀀스 UX) + ContactModal 모바일 반응형 + R31(콜드 스타트 완화) 작업물을 분리 repo 로 동기화.
+> 자율비행(R32) 관련 변경은 사용자 명시로 본 배포에서 제외.
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R31.1 | 2026-05-07 (오전) | **사업자번호 검색란 모바일 반응형** — input 의 기본 size(~150px) 가 flex-grow 와 무관하게 min-width 로 작용해 "진위 확인" 버튼을 밖으로 밀어내고 좌우 스크롤바 유발. `size={1}` + `min-w-0` + 버튼 `shrink-0` + 모바일 패딩 축소 (`px-3 sm:px-5`) 로 input 자유 축소 + 균형. | src/components/landing/ContactModal.jsx |
+| R31.2 | 2026-05-07 10:05 | **객체감지 모드 시퀀스 UX (스캔→탐지)** — `detectionPhase` ∈ {idle, raw(0–1.0s), scan(1.0–2.2s), detected}. backend `?mode=raw` 요청 → SVG 가 박스 일체 렌더(burned-in box 회피). naturalWidth viewBox 기반 자동 정렬, 스캔 sweep + 격자 pulse + bbox 페이드인 + confidence 카운트업 chip + 심각도 컬러링(HIGH/MED/LOW). | src/components/video/LiveVideoFeed.jsx |
+| R31.3 | 2026-05-07 10:05 | **CSS 키프레임 6종 전역 등록** — `scanSweep`, `scanGridPulse`, `detectPulse`, `detectGlow`, `detectLabelIn`, `detectCornerIn`. 컴포넌트 인라인 `<style>` 회피로 재렌더 비용 0. | src/index.css |
+| R31.4 | 2026-05-07 17:00 | **Login.jsx 콜드 스타트 워밍 핑** — useEffect mount 시 `${VITE_API_BASE_URL}/` 핑 1회. 사용자가 ID/PW 입력하는 동안 Fly.io 머신 부팅 진행 → 실제 로그인 요청은 따뜻한 머신을 만남. `.catch(() => {})` fire-and-forget. | src/pages/Login.jsx |
+| R31.5 | 2026-05-07 17:00 | **Landing.jsx 콜드 스타트 워밍 핑** — 동일 패턴. 랜딩 → 로그인 가는 동안 머신 미리 깨움 (직접 /login 진입은 R31.4 가 잡음). | src/pages/Landing.jsx |
+
+### 📐 설계 결정 사항
+
+- **모바일 input 의 기본 size 함정**: HTML `<input>` 은 `size` 속성 기본값이 ~20 chars (~150px) 이고 이것이 flex 컨테이너 안에서 min-width 처럼 작용 → flex-grow 가 무력화되고 형제 요소를 밖으로 밀어냄. `size={1}` 로 명시 축소 + `min-w-0` 으로 flex min-content 무시.
+- **객체감지 detection 모드만 시퀀스, bbox 모드는 그대로**: 사용자 원본 피드백이 "객체감지모드에서" 한정. bbox 모드는 "단순 위치 표시 — 빠른 확인" 의도라 시퀀스 적용 시 의도 손상.
+- **백엔드 raw 분기 + 프론트 SVG 분리**: detection 모드 진입 시 backend `?mode=raw` → 박스 없는 JPEG → SVG 가 박스 일체 렌더. burned-in box + SVG box 두 겹이면 미세 어긋남 + 시각 노이즈.
+- **viewBox 기반 좌표 자동 정렬**: SVG `viewBox` + `preserveAspectRatio` 를 img 와 일치 → DOM 리사이즈/풀스크린 토글 시 자동 재정렬.
+- **워밍 핑 root `/` 사용**: `{"status":"ok"}` 만 반환하는 가장 가벼운 엔드포인트. `/health` 는 모델 상태/카메라까지 검사해서 무겁고 503 가능성도 있어 워밍용 부적합.
+- **fire-and-forget 패턴**: `.catch(() => {})` 로 실패해도 무시. 워밍 목적이라 응답 결과 사용 안 함, 콘솔 노이즈/UX 영향 0.
+- **min_machines_running 안 건드림**: Fly 1GB 머신은 무료 한도 초과 가능성 → 비용 발생 우려. 사용자 명시 결정 필요. 워밍 핑만으로도 첫 로그인 체감속도 5~10초 단축 예상.

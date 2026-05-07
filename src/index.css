@@ -72,3 +72,34 @@ input::placeholder, textarea::placeholder {
     @apply text-xs bg-neutral-700 text-neutral-400 border border-neutral-600 px-2 py-0.5 rounded font-medium;
   }
 }
+
+/* ── 객체감지 모드 시퀀스 애니메이션 ──
+ * LiveVideoFeed 가 detection 모드 + 하자 선택 시 raw → scan → detected 순서로 단계 전환.
+ * 키프레임은 전역에 한 번 정의해서 컴포넌트는 클래스/animation-name 만 참조 (재렌더 비용 없음).
+ */
+@keyframes scanSweep {
+  0%   { top: -4%;  opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 104%; opacity: 0; }
+}
+@keyframes detectPulse {
+  0%, 100% { stroke-opacity: 0.65; }
+  50%      { stroke-opacity: 1; }
+}
+@keyframes detectGlow {
+  0%, 100% { filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 6px currentColor); }
+  50%      { filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 14px currentColor); }
+}
+@keyframes detectLabelIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes detectCornerIn {
+  from { opacity: 0; stroke-dashoffset: 60; }
+  to   { opacity: 1; stroke-dashoffset: 0; }
+}
+@keyframes scanGridPulse {
+  0%, 100% { opacity: 0.06; }
+  50%      { opacity: 0.18; }
+}

@@ -197,20 +197,24 @@ export default function ContactModal({ isOpen, onClose }) {
               <label htmlFor="bizNumber" className="block text-sm font-bold text-slate-700">
                 사업자등록번호 <span className="text-red-500">*</span>
               </label>
+              {/* 모바일: input 의 기본 size(~150px) 가 flex-grow 와 무관하게 min-width 로 작용해
+                  버튼을 밖으로 밀어내고 좌우 스크롤바 유발. min-w-0 + size={1} 로 input 이
+                  자유롭게 축소되도록 풀고, 버튼 패딩은 모바일에서 살짝 좁혀 균형. */}
               <div className="flex gap-2">
                 <input
                   type="text"
                   id="bizNumber"
+                  size={1}
                   value={form.bizNumber}
                   onChange={(e) => updateField('bizNumber', e.target.value)}
-                  placeholder="'-' 제외 10자리 입력"
+                  placeholder="'-' 제외 10자리"
                   maxLength={10}
-                  className="flex-grow px-3 py-2 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-blue-600"
+                  className="flex-grow min-w-0 px-3 py-2 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <button
                   type="button"
                   onClick={verifyBusiness}
-                  className="px-5 py-2 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-800 transition whitespace-nowrap text-sm"
+                  className="shrink-0 px-3 sm:px-5 py-2 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-800 transition whitespace-nowrap text-sm"
                 >
                   진위 확인
                 </button>

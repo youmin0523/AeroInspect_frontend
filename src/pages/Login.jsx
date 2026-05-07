@@ -6,7 +6,7 @@
  *       - 사업자: 사업자등록번호 + 아이디·비밀번호 (소셜 로그인 미제공)
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { login as loginApi, getGoogleAuthUrl, getKakaoAuthUrl, getNaverAuthUrl } from '../api/authApi'
@@ -64,6 +64,13 @@ export default function Login() {
 
   // 마지막으로 사용한 로그인 방법 (가입자가 다른 방식으로 새 가입하는 사고 방지용 가이드)
   const [lastLoginMethod] = useState(() => localStorage.getItem('last_login_method'))
+
+  // Fly.io auto_stop_machines 콜드 스타트 완화: 페이지 진입 시 root 핑으로 머신 미리 깨움.
+  // 사용자가 ID/PW 입력하는 동안 부팅이 진행되어 실제 로그인 요청은 따뜻한 머신을 만남.
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+    fetch(`${apiBase}/`, { method: 'GET' }).catch(() => {})
+  }, [])
 
   const isBusiness = loginType === 'business'
 
