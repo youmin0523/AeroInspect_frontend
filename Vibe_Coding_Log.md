@@ -2763,3 +2763,28 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - `vite build`: 14.99s OK.
 - 빌드 산출물 크기 변화 미미 (lucide Copy/Check 아이콘 추가 분 약 +0.3KB).
+
+
+---
+
+## 🎯 R-v1.1.03 — ThreadList 자동 제목 반영 + FAB 세로 스택 (2026-05-15 오후)
+
+> 사용자 피드백: "대화창 여러 개 열었을 때 '제목 없음' 으로만 뜨면 무슨 대화였는지 못 찾는다, 요약 등으로 표현되면 좋겠다." (백엔드 R-v1.1.03 와 짝)
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .03.f1 | 2026-05-15 오후 | **ThreadList fallback 친절화** — `t.title?.trim() || '새로운 대화'` 로 변경(기존 '제목 없음' → '새로운 대화'). 백엔드가 첫 user 메시지 prefix 30자를 자동 제목으로 채우니 fallback 빈도 자체가 줄어듬. | src/components/chatbot/ThreadList.jsx |
+| .03.f2 | 2026-05-15 오후 | **aiChatStore onDone fetchThreads** — 백엔드 BackgroundTask 가 LLM 7단어 짧은 제목으로 갱신하는 데 1~2초 걸림. onDone 콜백에서 setTimeout 2.5s 후 fetchThreads 호출 → sidebar 가 자연스럽게 새 제목으로 갱신됨. | src/store/aiChatStore.js |
+| .03.f3 | 2026-05-15 오후 | **FloatingChatbotButton 위치 조정** — 기존 메신저 FAB(파랑, `bottom-6 right-6`) 와 가로 충돌 회피 위해 같은 우측이지만 세로 스택(`bottom-24 right-6`)으로 배치. 두 FAB 가 세로로 정렬되어 시각적 일관성. (사용자 직접 수정) | src/components/chatbot/FloatingChatbotButton.jsx |
+
+### 📐 설계 결정
+
+- **두 단계 자동 제목과 호환**: 백엔드가 즉시 prefix 제목 → 응답 완료 후 LLM 갱신. 프론트는 onDone 2.5초 지연으로 한 번 더 fetchThreads → 새 제목 자동 노출.
+- **fallback 텍스트**: 자동 제목이 어떤 이유로든 비어있을 때만 보임. "제목 없음" 보다 "새로운 대화" 가 친절한 톤.
+- **FAB 세로 스택**: 기존 메신저 FAB 와 가로 충돌(우측 끝 둘 다 점유) 보다 세로 스택이 모바일 폭에서도 안정.
+
+### ✅ 검증
+
+- `vite build`: 14.19s OK.

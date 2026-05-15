@@ -89,7 +89,7 @@ export default function ThreadList() {
                 <MessageCircle size={16} className="mt-0.5 text-violet-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-gray-900 truncate">
-                    {t.title || '제목 없음'}
+                    {t.title?.trim() || '새로운 대화'}
                   </div>
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     {formatRelative(t.last_message_at)}

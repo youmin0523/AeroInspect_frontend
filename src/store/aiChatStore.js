@@ -202,6 +202,11 @@ const useAiChatStore = create((set, get) => ({
             abortController: null,
           }
         })
+        // 백엔드 BackgroundTask 가 LLM 5단어 제목으로 갱신 — 살짝 지연 후 한 번 더 fetchThreads
+        // (보통 1~2초 내 완료). 사용자가 sidebar 에서 즉시 새 제목 보게 됨.
+        setTimeout(() => {
+          get().fetchThreads()
+        }, 2500)
       },
     })
   },

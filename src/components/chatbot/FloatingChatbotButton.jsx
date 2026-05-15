@@ -1,7 +1,8 @@
 /**
  * components/chatbot/FloatingChatbotButton.jsx
  * 역할: /employee/* 페이지 우하단 FAB — AI 챗봇 패널 토글
- *       - 기존 메신저 FAB(파랑, right-6) 와 시각 구분: violet, right-24
+ *       - 기존 메신저 FAB(파랑, bottom-6 right-6) 위로 세로 스택 배치 (bottom-24)
+ *       - 색 구분: violet
  *       - 아이콘: Sparkles (lucide-react)
  *       - 접근성: aria-expanded + title
  */
@@ -20,7 +21,7 @@ export default function FloatingChatbotButton() {
       aria-expanded={isOpen}
       aria-label={isOpen ? 'AI 어시스턴트 닫기' : 'AI 어시스턴트 열기'}
       title={isOpen ? '닫기' : 'AI 어시스턴트'}
-      className="fixed bottom-6 right-24 z-50 group flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 pl-4 pr-4 py-3 hover:pr-5"
+      className="fixed bottom-24 right-6 z-50 group flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 pl-4 pr-4 py-3 hover:pr-5"
     >
       {isOpen ? (
         <X size={20} className="shrink-0" />
