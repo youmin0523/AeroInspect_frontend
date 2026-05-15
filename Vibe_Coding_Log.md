@@ -2788,3 +2788,36 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### ✅ 검증
 
 - `vite build`: 14.19s OK.
+
+
+---
+
+## 🎯 R-v1.1.04 — 인증 토큰 영속화 (localStorage 미러) (2026-05-15 오후)
+
+> 사용자 피드백: "잘못해서 브라우저를 닫고 열었을 때 다시 로그인해야 되네? 로그인 토큰을 로컬에 저장해놨다가 브라우저를 모두 닫았을 때 소멸되게 할 수는 없을까?"
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .04.1 | 2026-05-15 오후 | **authStore localStorage write-through** — `setAuth/switchOrg/logout` 의 sessionStorage.setItem/removeItem 호출을 `setBoth/removeBoth` 헬퍼로 교체. AUTH_KEYS(`access_token`/`refresh_token`/`user`/`current_org`) 4개를 localStorage + sessionStorage 양쪽에 동시 set/remove. | src/store/authStore.js |
+| .04.2 | 2026-05-15 오후 | **모듈 import 시 hydration** — `hydrateSessionFromLocal()` 이 authStore.js 로드되자마자 자동 실행. localStorage 에 토큰 있고 sessionStorage 비어있으면 미러. **기존 api/* 인터셉터 17곳의 `sessionStorage.getItem` 호출을 일절 수정하지 않고도** 새 탭/새로고침/탭 닫았다 열기에서 인증 헤더 자동 유효. | src/store/authStore.js |
+| .04.3 | 2026-05-15 오후 | **초기 state read 폴백** — token/user/currentOrg 초기 상태는 `getAuthValue()` 로 localStorage → sessionStorage 폴백 순. 어느 한 쪽에만 있어도 복구. | src/store/authStore.js |
+
+### 📐 설계 결정 / 자가검토
+
+- **sessionStorage → localStorage 일괄 교체는 X**: 17개 파일 일괄 교체는 작업 범위 크고 회귀 위험. authStore 1곳만 변경 + 미러로 같은 효과.
+- **"브라우저 완전 종료 시 소멸" 의 한계**: localStorage 는 표준상 영구 저장이라 "마지막 창 닫힘" 신호 받을 방법 없음. 사용자 의도의 80%(탭 닫아도 유지)는 달성, 보안 절충은 **JWT 자체 만료 120분(`JWT_EXPIRE_MINUTES`)** 으로 보장.
+- **명시 logout 시 양쪽 모두 정리**: removeBoth 가 AUTH_KEYS 4개를 localStorage·sessionStorage 모두 지움.
+- **last_login_method 는 localStorage 유지**: 다음 로그인 시 가이드용 (현재 동작 그대로).
+- **OAuth refresh_token 도 미러**: provider 로그인 시점에 함께 영속.
+
+### ✅ 검증
+
+- `vite build`: 15.34s OK.
+- 회귀 면 — 기존 17개 파일의 sessionStorage.getItem 호출은 그대로 동작 (hydration 후 sessionStorage 에 토큰 존재).
+
+### 🚨 안전성 영향
+
+- **공유 PC 시 토큰 누설 위험 증가**: 사용자가 명시 logout 안 하고 브라우저만 닫으면 다음 사용자가 localStorage 의 토큰으로 접근 가능. JWT 120분 만료가 보조 가드. 향후 idle 자동 logout(30분 무활동) 추가 검토 가능.
+- **XSS 노출 면**: localStorage 도 sessionStorage 와 동일하게 JS 접근 가능. react-markdown raw HTML 차단·CSP 등 기존 방어가 그대로 유효.
