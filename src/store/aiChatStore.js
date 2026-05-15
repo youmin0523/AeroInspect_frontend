@@ -88,9 +88,18 @@ const useAiChatStore = create((set, get) => ({
   },
 
   selectThread: (threadId) => {
-    set({ activeThreadId: threadId, view: 'thread', error: null })
-    // 캐시 없으면 페치
-    if (!get().messagesByThread[threadId]) {
+    // 캐시 미스 시, 빈 배열 placeholder 를 먼저 깔아 selector 의 fallback `|| []` 가
+    // 매 렌더마다 새 ref 를 만들어 useSyncExternalStore 무한 루프를 유발하지 않게 함.
+    const hadCache = !!get().messagesByThread[threadId]
+    set((s) => ({
+      activeThreadId: threadId,
+      view: 'thread',
+      error: null,
+      messagesByThread: hadCache
+        ? s.messagesByThread
+        : { ...s.messagesByThread, [threadId]: [] },
+    }))
+    if (!hadCache) {
       get().fetchMessages(threadId)
     }
   },

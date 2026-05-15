@@ -128,6 +128,9 @@
 
 ## Revision History
 
+### v6.1_260515 (작성자: @youminsu0523 / branch: MS)
+- **(frontend R-v1.1.05) 챗봇 기존 대화 클릭 시 검정화면 hotfix** — `ChatbotMessageThread.jsx` selector 에 모듈 상수 `EMPTY_MESSAGES` 적용, `aiChatStore.selectThread` 에서 캐시 미스 시 빈 배열 placeholder 를 먼저 set. useSyncExternalStore getSnapshot 무한 루프로 인한 패널 unmount 차단. ErrorBoundary 도입은 v1.2 검토.
+
 ### v6.0_260515 (작성자: @youminsu0523 / branch: MS)
 - **(frontend R-v1.1.01) OpenAI 챗봇 UI 통합** — 통합 repo 와 동일.
   - 신규 `src/api/aiChatApi.js` — REST + SSE 스트리밍 (fetch+ReadableStream `data: {json}\n\n` 파서).

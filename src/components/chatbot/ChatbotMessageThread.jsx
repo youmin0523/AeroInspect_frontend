@@ -11,9 +11,15 @@ import { Sparkles, AlertTriangle } from 'lucide-react'
 import useAiChatStore from '../../store/aiChatStore.js'
 import ChatbotMessageBubble from './ChatbotMessageBubble.jsx'
 
+// zustand selector 가 매 렌더마다 새 `[]` 를 반환하면 useSyncExternalStore 무한 루프 → 패널 unmount.
+// 캐시 미스(thread 첫 선택 직후 fetchMessages 응답 전) 시 항상 같은 ref 를 반환하도록 모듈 상수 사용.
+const EMPTY_MESSAGES = []
+
 export default function ChatbotMessageThread() {
   const activeThreadId = useAiChatStore((s) => s.activeThreadId)
-  const messages = useAiChatStore((s) => s.messagesByThread[s.activeThreadId] || [])
+  const messages = useAiChatStore(
+    (s) => s.messagesByThread[s.activeThreadId] || EMPTY_MESSAGES,
+  )
   const messagesLoading = useAiChatStore((s) => s.messagesLoading)
   const streaming = useAiChatStore((s) => s.streaming)
   const streamingDraft = useAiChatStore((s) => s.streamingDraft)

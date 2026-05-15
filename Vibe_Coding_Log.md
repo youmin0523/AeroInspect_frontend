@@ -2821,3 +2821,33 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - **공유 PC 시 토큰 누설 위험 증가**: 사용자가 명시 logout 안 하고 브라우저만 닫으면 다음 사용자가 localStorage 의 토큰으로 접근 가능. JWT 120분 만료가 보조 가드. 향후 idle 자동 logout(30분 무활동) 추가 검토 가능.
 - **XSS 노출 면**: localStorage 도 sessionStorage 와 동일하게 JS 접근 가능. react-markdown raw HTML 차단·CSP 등 기존 방어가 그대로 유효.
+
+
+---
+
+## 🎯 R-v1.1.05 — 챗봇 기존 대화 클릭 시 검정화면 hotfix (2026-05-15 저녁)
+
+> 사용자 피드백: "AI Chatbot에서 기존 대화를 누르니까 검정화면으로만 바뀌고 대화가 안떠." (백엔드 R-v1.1.05 와 짝 — 제목 자동 흐름 요약 개선과 동일 라운드)
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .05.f1 | 2026-05-15 저녁 | **ChatbotMessageThread selector 안정화** — `messagesByThread[activeThreadId] \|\| []` 가 매 렌더마다 새 `[]` ref 반환 → zustand 의 `useSyncExternalStore` getSnapshot 무한 루프 → React 가 컴포넌트 트리 unmount → 패널 자체가 사라지고 뒤의 `bg-black/30` 오버레이만 남아 "검정화면" 으로 보임. 모듈 상수 `EMPTY_MESSAGES = []` 도입으로 캐시 미스 시 항상 동일 ref 반환. 새 thread 는 `createThread` 가 빈 배열 캐시를 미리 깔아둬서 영향 없었고, **기존 thread 클릭 경로만 깨졌던 이유**. | src/components/chatbot/ChatbotMessageThread.jsx |
+| .05.f2 | 2026-05-15 저녁 | **aiChatStore.selectThread 빈 배열 placeholder** — 캐시 미스 시 `messagesByThread[threadId] = []` 를 먼저 set 한 뒤 `fetchMessages` 호출. 이중 안전망(selector 단 + store 단)으로 같은 패턴 재발 방지. 캐시 판정은 `hadCache = !!s.messagesByThread[threadId]` 로 명확화 (빈 배열 placeholder ≠ 진짜 캐시). | src/store/aiChatStore.js |
+
+### 📐 설계 결정 / 자가검토
+
+- **증상에서 원인까지의 추론**: "검정화면" → bg-white 패널이 사라지고 뒤의 `bg-black/30` 오버레이만 남았다 → React unmount 의심 → ErrorBoundary 없음 확인 → 가장 가능성 높은 throw 지점은 useSyncExternalStore getSnapshot caching 위반. selector `|| []` 패턴이 정확히 그것.
+- **모듈 상수 vs useMemo**: 컴포넌트 외부 모듈 상수가 더 단순. useMemo 는 deps 가 필요해서 selector 자체에는 적용 안 됨.
+- **store 단 placeholder 도 같이**: 다른 컴포넌트가 같은 selector 패턴을 쓸 경우 대비. 미래 회귀 안전망.
+
+### ✅ 검증
+
+- `vite build`: 로컬 OK (사용자 production 검증 대기).
+- 로직 검증: 기존 대화 클릭 → activeThreadId 셋 + view='thread' + messagesByThread[id]=[] placeholder → selector 가 같은 빈 배열 ref 반환 → ChatbotMessageThread 정상 렌더(messagesLoading=true 라 "메시지를 불러오는 중…") → fetchMessages 응답 도착 시 진짜 메시지 배열로 교체.
+- 새 thread 경로는 회귀 없음 (createThread 가 이미 [] 캐시 깔고 있었음).
+
+### 🚨 안전성 영향
+
+- 사용자 데이터 누락 X — 이 fix 는 순수 클라이언트 렌더 안정화이고, 백엔드 응답/저장 흐름과 무관.
