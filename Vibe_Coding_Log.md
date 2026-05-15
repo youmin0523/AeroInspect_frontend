@@ -2679,3 +2679,23 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - `vite build`: 15.66s OK, 4.85MB chunk.
 - 빌드 후 미디어가 영상이면 <video>, 이미지면 기존 MJPEG <img> 자동 분기.
 - 추론 결과 ±0.4s 윈도우 안에서만 오버레이 점멸.
+
+
+---
+
+## 🎯 R38 — AI Chatbot 프론트 컴포넌트 누락 분 + react-markdown 의존성 (2026-05-15 15:50)
+
+> R36 ai_chat 백엔드/스토어/API 는 동기됐으나 실제 화면 패널/버블/입력/플로팅 버튼 컴포넌트가 누락. App.jsx 의 GlobalFloatingChatbot 와이어업 + package.json react-markdown 추가. package-lock 재생성으로 Vercel npm ci 대비.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R38.1 | 2026-05-15 15:50 | **chatbot 8개 컴포넌트 신규** — ChatbotInput / ChatbotMessageBubble / ChatbotMessageThread / ChatbotPanel / ChatbotPanelHeader / FloatingChatbotButton / GlobalFloatingChatbot / ThreadList. | src/components/chatbot/*.jsx |
+| R38.2 | 2026-05-15 15:50 | **App.jsx GlobalFloatingChatbot 와이어업** — 기존 GlobalFloatingChat(채팅) 옆에 GlobalFloatingChatbot(AI) 추가. | src/App.jsx |
+| R38.3 | 2026-05-15 15:51 | **react-markdown ^9.0.1** — 챗봇 메시지 마크다운 렌더링. npm install 로 package-lock 재생성(Vercel npm ci 안전). | package.json, package-lock.json |
+
+### ✅ 검증
+
+- `vite build`: 18.13s OK.
+- package-lock 에 react-markdown 3 entries 등록 확인.

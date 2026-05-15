@@ -22,6 +22,7 @@
     "lucide-react": "^1.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
     "remixicons": "^4.6.1",
