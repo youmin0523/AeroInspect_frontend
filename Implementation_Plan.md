@@ -128,6 +128,13 @@
 
 ## Revision History
 
+### v6.0_260515 (작성자: @youminsu0523 / branch: MS)
+- **(frontend R-v1.1.01) OpenAI 챗봇 UI 통합** — 통합 repo 와 동일.
+  - 신규 `src/api/aiChatApi.js` — REST + SSE 스트리밍 (fetch+ReadableStream `data: {json}\n\n` 파서).
+  - 신규 `src/store/aiChatStore.js` — Zustand. `isOpen / view / threads / messagesByThread / streaming`. 낙관적 user 메시지 + onDone 에서 thread 끌어올림.
+  - 신규 `src/components/chatbot/` 8개 (FloatingChatbotButton / ChatbotPanel / Header / ThreadList / ChatbotMessageThread / ChatbotMessageBubble / ChatbotInput / GlobalFloatingChatbot). 우측 sliding drawer + violet FAB. react-markdown raw HTML 비허용.
+  - `App.jsx` 마운트 + `package.json` `react-markdown` ^9.0.1.
+
 ### v5.1_260506 (작성자: @youminsu0523 / branch: main)
 - **R19 (5/6)** Landing 탭 favicon 일원화 — 누락된 `/drone-icon.svg` 참조 제거 후 ico+PNG 다중 등록. PowerShell + System.Drawing 알파 row 스캔으로 로고 PNG의 graphic/text 자동 분리(graphic = rows 59–252, cols 235–441). 정사각 캔버스(239×239) 가운데 배치 + 양쪽 16px 패딩. ICO 직접 바이너리 작성(ICONDIR + ICONDIRENTRY × 3 + 16/32/48 PNG payload)으로 32bpp 알파 보존. 배포 환경 globe 기본 favicon 이슈 해소.
 - **R23 (5/6, R19 후속)** favicon 흰 원 배경 + 로고 확대 — 다크 탭/작은 사이즈에서 어두운 푸른빛 로고가 묻히는 이슈 해결. master 사이즈 239 → 512 격상(다운샘플 안티앨리어싱 품질 향상), `FillEllipse(0,0,512,512)` 흰 원 배경, inscribed 사각형(=512/√2) 92% 기준(333×312)에 로고 aspect 보존 fit. 모든 사이즈(ico 16/32/48 + PNG 16/32/192/512 + apple-touch 180) 갱신 + 픽셀 검증으로 흰 원/투명/로고 색상 확인.

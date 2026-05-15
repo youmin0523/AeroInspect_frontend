@@ -2699,3 +2699,41 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - `vite build`: 18.13s OK.
 - package-lock 에 react-markdown 3 entries 등록 확인.
+
+
+---
+
+## 🎯 R-v1.1.01 — OpenAI 챗봇 UI 완전 통합 (2026-05-15 오후)
+
+> 사용자 요청: "open AI 를 활용한 chatbot 을 만들 예정 — 건축물·하자에 대한 도메인 대화" + "memory 기능 — 다음날도 흐름 유지" + "세션별 대화방 수동 생성" + "통합/분리 repo 모두 동일 반영". 이전 R38 로그는 분리 repo 만 부분 동기됐고 실제 컴포넌트/의존성이 누락 상태였음 — 이번 라운드는 통합/분리 repo 양쪽에 실제 8 컴포넌트 + aiChatApi + aiChatStore + App.jsx 마운트 + package.json `react-markdown` 추가를 완전 적용.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .01.1 | 2026-05-15 오후 | **aiChatApi.js (REST + SSE)** — listThreads / createThread / renameThread / deleteThread / listMessages / sendMessageStream. SSE 는 fetch+ReadableStream 으로 `data: {json}\n\n` 라인 파싱. EventSource 미사용(GET-only + 커스텀 헤더 불가). | src/api/aiChatApi.js (신규) |
+| .01.2 | 2026-05-15 오후 | **aiChatStore (Zustand)** — isOpen / view('list'\|'thread') / threads / messagesByThread 캐시 / streaming + streamingDraft + AbortController. sendMessage 는 낙관적 user 메시지 추가 후 onDelta/onDone 으로 누적. 새로고침 후 selectThread 시 서버 히스토리 페치. | src/store/aiChatStore.js (신규) |
+| .01.3 | 2026-05-15 오후 | **8개 chatbot 컴포넌트** — FloatingChatbotButton(violet FAB, right-24) / ChatbotPanel(우측 sliding drawer, ESC 닫기) / ChatbotPanelHeader(뒤로·새 대화·삭제·닫기) / ThreadList(빈 상태 추천 질문 4종) / ChatbotMessageThread(자동 스크롤, 스트리밍 중 임시 bubble) / ChatbotMessageBubble(react-markdown raw HTML 비허용) / ChatbotInput(Enter 전송, Shift+Enter 줄바꿈, 4000자 가드, 중단 버튼) / GlobalFloatingChatbot(/employee/* + 토큰 보유 시에만 렌더). | src/components/chatbot/*.jsx (8개 신규) |
+| .01.4 | 2026-05-15 오후 | **App.jsx GlobalFloatingChatbot 마운트** — 기존 `<GlobalFloatingChat />`(메신저) 옆에 `<GlobalFloatingChatbot />`(AI 챗봇) 추가. 두 FAB 시각 구분: 기존 blue right-6 / 신규 violet right-24. | src/App.jsx |
+| .01.5 | 2026-05-15 오후 | **react-markdown ^9.0.1 의존성 명시** — 챗봇 어시스턴트 메시지의 표·목록·코드 가독성. `disallowedElements=['script','iframe','style','object','embed']` + `unwrapDisallowed` 로 XSS 방어. | package.json |
+
+### 📐 설계 결정 / 자가검토
+
+- **별도 컴포넌트 트리**: 기존 메신저(`/employee/chat`) 코드와 인터페이스 의미가 다름(사람↔AI). MessageBubble/Input 재사용 시 sender_id vs role 분기 지저분 → 별 트리로 분리.
+- **우측 sliding drawer**: 모달이 아니라 우측 패널 — 사용자가 화면 좌측 데이터(대시보드/리포트)를 보면서 "이 결함 뭐야?" 식 질의 가능.
+- **fetch + ReadableStream**: EventSource 는 GET 전용·Authorization 헤더 미지원이라 사용 X. reportApi.js 의 SSE 패턴 차용 후 라인 파서만 보강.
+- **낙관적 user 메시지**: 서버 INSERT 전 즉시 화면 반영. onDone 에서 assistant 메시지 영속화 + thread 를 목록 상단으로 끌어올림.
+- **react-markdown raw HTML 차단**: 어시스턴트가 잘못된 HTML 을 뱉어도 DOM 인젝션 차단. 외부 링크는 target=_blank rel=noopener 자동.
+
+### ✅ 검증 (선/후)
+
+- `/employee` 진입 시 violet "AI 어시스턴트" FAB 우하단 노출 (메신저 FAB 좌측, 충돌 없음)
+- 새 대화 → 메시지 전송 → 토큰 스트림이 bubble 에 누적 → 완료 시 done event + thread 목록 상단 갱신
+- 새로고침 후 동일 thread 선택 → 서버에서 메시지 히스토리 페치 → 이전 흐름 유지
+- 입력 4000자 초과 차단 / 스트리밍 중 입력 disabled / 중단 버튼 동작 / ESC 패널 닫기
+
+### 🚨 안전성 영향
+
+- 어시스턴트 마크다운 raw HTML 차단(XSS)
+- API 호출 sessionStorage 토큰 + X-Organization-Id 자동 첨부 (백엔드에서 user_id+org_id 이중 검증)
+- 비 /employee/* 경로 / 비 로그인 상태에서는 FAB·패널 렌더 X — 랜딩 페이지 비로그인 입장에서는 챗봇 비노출
