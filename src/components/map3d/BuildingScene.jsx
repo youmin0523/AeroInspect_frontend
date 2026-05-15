@@ -19,10 +19,15 @@ import useSessionStore from '../../store/sessionStore.js'
 export default function BuildingScene() {
   const defects = useDefectStore((s) => s.defects)
   // //* [Modified Code] 세션 level + L2 이미지 URL + 벽체/윤곽 데이터 구독 — BuildingMesh 에 전달
+  // //* [Modified Code 2026-05-13] 종횡비 보존을 위해 imageWidth/imageHeight/scalePxPerMeter 도 전달
   const level = useSessionStore((s) => s.level)
   const imageUrl = useSessionStore((s) => s.uploadedImageDataUrl)
   const wallsData = useSessionStore((s) => s.wallsData)
   const outline = useSessionStore((s) => s.outline)
+  const imageWidth = useSessionStore((s) => s.imageWidth)
+  const imageHeight = useSessionStore((s) => s.imageHeight)
+  const scalePxPerMeter = useSessionStore((s) => s.scalePxPerMeter)
+  const furnitureData = useSessionStore((s) => s.furnitureData)
 
   // LiDAR 좌표가 있는 하자만 마커 표시
   const mappedDefects = defects.filter(
@@ -49,7 +54,16 @@ export default function BuildingScene() {
 
         <Suspense fallback={null}>
           {/* //* [Modified Code] 세션 level 기반 건물 구조 렌더 (L1/L2/L3 분기) */}
-          <BuildingMesh level={level} imageUrl={imageUrl} wallsData={wallsData} outline={outline} />
+          <BuildingMesh
+            level={level}
+            imageUrl={imageUrl}
+            wallsData={wallsData}
+            outline={outline}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            scalePxPerMeter={scalePxPerMeter}
+            furnitureData={furnitureData}
+          />
 
           {/* 하자 마커 */}
           {mappedDefects.map((defect) => (

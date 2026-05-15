@@ -2550,3 +2550,132 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - `login` (목표: <300ms로 spinner 안 뜨기)
 - `dashboard-warm-root`, `dashboard-warm-init` (콜드 스타트 진단)
 - `upload-downsample`, `upload-network`, `upload-total`
+
+---
+
+## 🎯 R31 — CAD/평면도 → 3D 모델링 정확도 + L3 자율비행 LiDAR 실시간 시각화 (2026-05-13 17:30)
+
+> 사용자 피드백: "지금 캐드 이미지를 3D 모델링하거나 평면도 이미지를 3D 모델링하는 거에 있어서 부족한 부분 자가검토하고 보완해. 스케일 및 치수 관련해서 정확한지 확인해. L3는 Gazebo를 이용해서 드론의 시뮬레이션 비행을 통한 3D 모델링을 할거야 — 자율비행이니까 참고해서 진행해. 실시간 자율비행 프로세스도 검증."
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R31.1 | 2026-05-13 16:00 | **floorplanApi axios 래퍼 + 클라이언트 사전 검증** — analyze/validate/upload+process 통합. `preflightFloorplanFile()` 가 image(50KB-25MB)/cad(.dxf/.dwg/.ifc, 50MB) 사전 거름. axios `onUploadProgress` + 서버 처리 단계 추정으로 진행률 0-100 통합. 기존 raw fetch 의 "25%/60%/90% 가짜 단계" 제거. | src/api/floorplanApi.js |
+| R31.2 | 2026-05-13 16:15 | **BuildingMesh 종횡비 보존 + 치수 출처 표시** — 하드코딩 `WIDTH=10, DEPTH=8` 제거, `deriveSceneSize({imageWidth, imageHeight, scalePxPerMeter, outline})` 도입. 우선순위: calibrated(scale_px_per_meter) > aspect(이미지 종횡비) > outline bbox > fallback. 가로 1500×세로 1000(3:2) 평면도가 5:4 로 강제되던 왜곡 제거. 치수 라벨에 "실측/추정" 출처 표기. | src/components/map3d/BuildingMesh.jsx |
+| R31.3 | 2026-05-13 16:20 | **L1 (CAD) 데이터 기반 렌더** — `LevelOneMesh` 가 항상 하드코딩 4벽만 그리던 문제 제거. wallsData 있으면 `WallMeshes` + `OutlineBoundary`, 없으면 `FourWallsFallback`. DXF 백엔드 추출 결과가 즉시 시각화됨. | src/components/map3d/BuildingMesh.jsx |
+| R31.4 | 2026-05-13 16:25 | **store 필드 확장 — imageWidth/imageHeight/scalePxPerMeter** — sessionStore + preModelStore 둘 다. selectPreModel/setLevel/reset/partialize 일관 처리. BuildingScene 가 sessionStore → BuildingMesh 로 전달. | src/store/sessionStore.js, src/store/preModelStore.js, src/components/map3d/BuildingScene.jsx |
+| R31.5 | 2026-05-13 16:40 | **PreWork 전면 재작성** — raw fetch → axios. L1 가짜 `setTimeout(2000)` mock 제거하고 실제 `uploadAndProcessCad()` 호출 (DXF 만 수용, DWG/IFC 차단). L2 는 `validateFloorplan()` 품질 게이트 추가 (rejected 차단, warning 통과). `readImageDimensions()` 로 imageWidth/imageHeight 사전 추출 → preModel 저장. 외곽 윤곽선 폴백 안내. | src/pages/employee/PreWork.jsx |
+| R31.6 | 2026-05-13 17:00 | **missionApi + droneStore lidarPoints 인프라** — startAutonomousScan/cancelMission/getMissionStatus/listMissions axios 래퍼. droneStore 에 lidarPoints (Float32Array, 불변 갱신) + lidarPointCount + lidarMissionStatus + 5개 액션 (begin/append/finish/fail/reset) 추가. | src/api/missionApi.js, src/store/droneStore.js |
+| R31.7 | 2026-05-13 17:10 | **useWebSocket — lidar/mission 이벤트 라우팅** — `lidar.points` → droneStore.appendLidarPoints, `mission.completed` → finishLidarMission, `mission.failed` → failLidarMission. (이후 사용자가 다중 채널 구독 + slam.created/updated/thermal.analysis 까지 확장) | src/hooks/useWebSocket.js |
+| R31.8 | 2026-05-13 17:20 | **LevelThreeMesh 실 LiDAR 점군 우선** — droneStore.lidarPoints 가 있으면 좌표축 매핑(LiDAR z↔Three y) 후 시각화, 없으면 5000점 랜덤 폴백 유지. lidarMissionMeta.worldW/worldD 로 씬 크기 산출. 데이터 출처 라벨 ("실측 스캔 중/완료" vs "미시작 폴백"). | src/components/map3d/BuildingMesh.jsx |
+| R31.9 | 2026-05-13 17:25 | **SessionModeling 자율비행 트리거** — L3 시작 버튼이 백엔드 `startAutonomousScan()` 호출 → WS 점 누적. 취소 시 `cancelMission()` 동시 호출. 진행 상태/에러 표기. | src/pages/session/SessionModeling.jsx |
+| R31.10 | 2026-05-13 17:30 | **L3 폴백 walls 패치** — 검증 중 발견: wallsData=null (도면 없는 정상 시나리오) 시 백엔드 미션 호출이 SKIP 되어 자율비행 자체가 발화 안 함. 8×6m 빈 사각형 walls/outline 즉석 생성으로 폴백 → 시뮬레이션 항상 동작. 빌드 후 빈 환경 테스트 1,512점 누적 + mission.completed 확인. | src/pages/session/SessionModeling.jsx |
+
+### 📐 설계 결정
+
+- **종횡비 보존 우선순위 4단**: calibrated 가 가장 정확하지만 사용자가 calibrate 단계를 거의 안 거침 → aspect ratio 폴백이 실질 default. 하드코딩 10×8 은 모든 평면도에 동일 비율 강제하는 "보이지 않는 왜곡" — 사용자가 치수 라벨 "10.0m/8.0m" 를 진짜 수치로 오인할 위험.
+- **치수 출처 라벨 노출**: "실측/추정/기본값" 을 3D 위에 띄워 사용자가 정확도 신뢰 수준을 즉시 인지. calibrate 안 했으면 "추정" 명시 → 후속 calibration 동기 부여.
+- **L1 데이터 기반 + 폴백 유지**: DXF 만 백엔드 처리 가능하고 DWG/IFC 는 향후 지원. 폴백 4벽은 "벽체 추출 실패해도 화면이 비지 않는" 안전망. 사용자 의도("CAD 도 의미있는 3D")와 백엔드 한계 사이의 타협.
+- **품질 게이트 — rejected 차단 / warning 통과**: 흐린 이미지 그대로 처리하면 OpenCV 가 거의 빈 walls 반환 → 사용자가 "내가 잘못 했나" 혼란. validate 가 7개 항목(해상도/선명도/대비/직선비율/직각/기울기/벽체수) 종합 점수 → rejected 면 명시 차단, warning 은 경고 후 진행.
+- **Float32Array + 불변 갱신**: appendLidarPoints 가 매 batch 마다 새 Float32Array 생성 (기존 + 신규 합쳐서 set). useMemo 가 reference 변경 감지해 BufferGeometry 재생성. 점이 누적될수록 비용 증가하지만 boustrophedon 1회 스캔 ~3000점 수준이라 허용 범위.
+- **L3 폴백 walls — 데모/실 비행 분리 정신**: "도면 없는 현장" 이 L3 의 정상 시나리오인데 walls 가 없으면 raycast 시뮬이 의미 없음. 두 갈래: (a) UI 변경해서 사용자가 가상 환경 명시 선택, (b) 백엔드/프론트가 묵시적 폴백. (b) 채택 — 사용자 동선에 단계 추가 안 하고 데모 모드 항상 작동. 실 ROS2/Gazebo 환경 도입 시 해당 분기는 제거.
+- **WS 채널 — 시뮬레이터가 'defects' 발행**: 현재 useWebSocket 이 'defects' 단일 채널 구독 (이후 다중 채널로 확장). 모든 이벤트(lidar/mission 포함) 를 'defects' 에 일괄 발행해 채널 추가 없이 라우팅. 의미상 'lidar' 분리가 깨끗하지만 현재 단순화 우선.
+
+### 🚨 안전성 영향
+
+- 종횡비 보존 변경은 시각/측정 영역 — 검출 정확도 영향 0.
+- L1 폴백 제거 안 함 → wallsData 없을 때 동일 화면 보장 (회귀 위험 0).
+- L3 폴백 walls 는 "데모 환경" 명시 의도. 실제 드론 비행 흐름에는 영향 없음 — 그 경우 프론트가 sessionStore.wallsData 를 가지고 있을 것.
+- 빌드: `npm run build` 13.10s 통과. 백엔드 시뮬레이터 종합 테스트(L2 환경 4032점, 빈 환경 1512점) 모두 100% 완주 + mission.completed 발행 확인.
+
+### 🔍 자가검토 발견 갭 (보완 완료)
+
+| # | 갭 | 보완 |
+|---|---|---|
+| 1 | 하드코딩 10×8 m → 모든 평면도 왜곡 | deriveSceneSize 4단 우선순위 |
+| 2 | L1 LevelOneMesh 가 wallsData 무시 | 데이터 기반 분기 + 4벽 폴백 |
+| 3 | /validate 엔드포인트 미사용 | PreWork L2 진입 시 호출, rejected 차단 |
+| 4 | raw fetch + 가짜 진행률 | axios 래퍼 + 실 onUploadProgress |
+| 5 | 클라이언트 사전 검증 부재 | preflightFloorplanFile (크기/타입) |
+| 6 | LevelThreeMesh 가 항상 랜덤 5000점 | droneStore.lidarPoints 우선, 폴백 유지 |
+| 7 | L3 진입 시 백엔드 미션 트리거 없음 | SessionModeling.handleStartDroneScan |
+| 8 | walls=null 시 자율비행 SKIP (검증 중 발견) | 8×6m 폴백 walls 즉석 생성 |
+
+---
+
+## 🎯 R32 — 전체 프로세스 검증 & 통합 미스매치 보완 (2026-05-13 16:00)
+
+> 사용자 피드백: "현재 프로젝트의 전체적인 프로세스 검증해줘. 로그인부터 시작해서 모든 기능들 전체 다. 누락된 부분이 있거나 보완이 필요한 부분이 있으면 정리해서 알려주면 순차적으로 진행하자." → 프론트/백 동시 audit 후 P0(보안)·P1(미구현)·P2(통합 미스매치) 정리, 사용자 확인 후 순차 수정·검증·다음 단계 반복. 통합 repo TEAM_PROJECT_2 도 동일 코드/ENV 동기화.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R32.1 | 2026-05-13 14:30 | **useWebSocket 다중 채널 구독** — 기존 `?channel=defects` 단일 구독 → `?channels=defects,telemetry,camera,thermal` 콤마 분리. 백엔드가 `telemetry`/`camera`/`thermal` 채널로 분리 broadcast 하는데 프론트가 못 받던 미스매치 해결. autonomous_flight_simulator 는 'defects' 채널로 발행해 미션 중에는 작동했지만, 일반 카메라 모드 전환·열화상 분석·텔레메트리 POST 결과는 화면에 안 떴음. | src/hooks/useWebSocket.js |
+| R32.2 | 2026-05-13 14:35 | **WS JWT 토큰 attach + 본인 채널 자동 구독** — authStore.token/user.id 를 useCallback deps 로 받아 로그인 시 `?token=...&channels=...,notifications:{uid},user:{uid}` 형태로 자동 갱신. 로그아웃 또는 사용자 전환 시 기존 소켓 close → 새 채널로 재연결. mountedRef + retryDelayRef 로 race 차단. | src/hooks/useWebSocket.js |
+| R32.3 | 2026-05-13 14:35 | **defect.batch 핸들러 추가** — 백엔드 `/ai/batch` 가 `defect.batch` 발행하는데 프론트는 `defect.new` 만 처리 → 배치 탐지가 모두 묵살되던 사고. `data.items.forEach(d => pushDefect(d))` 로 단건과 동일 경로 합류. | src/hooks/useWebSocket.js |
+| R32.4 | 2026-05-13 14:40 | **thermalStore 신설 + useThermalData 셀렉터 래퍼** — 기존 `useThermalData` 가 컴포넌트별 useState 라 useWebSocket 핸들러에서 직접 push 불가 (인스턴스 분리). Zustand 모듈 싱글톤 store 로 옮기고, 기존 훅은 셀렉터로 호환 유지 → ThermalGraph 무수정. | src/store/thermalStore.js (신규), src/hooks/useThermalData.js |
+| R32.5 | 2026-05-13 14:45 | **WS thermal/slam 이벤트 라우팅** — `thermal.frame`, `thermal.analysis` → thermalStore.pushReading. `slam.created`, `slam.updated` console.log (3D 미니맵 향후 hook 지점). `connection.established` 에서 거부된 채널(rejected) 워닝 로그. | src/hooks/useWebSocket.js |
+| R32.6 | 2026-05-13 15:10 | **ThermalOverlay 실제 HUD 구현** — 기존 placeholder Canvas + TODO 주석 → thermalStore.readings 최신값(max/avg/min) 우상단 컴팩트 패널. Δ(max-avg)≥3°C 면 빨간 펄스 ALERT 보더 + shadow. LiveVideoFeed 에 `cameraMode === 'thermal' \|\| 'blend'` 일 때 표시. | src/components/video/ThermalOverlay.jsx, src/components/video/LiveVideoFeed.jsx |
+| R32.7 | 2026-05-13 15:25 | **ContactModal → /api/v1/contact 연동** — 기존 `alert(접수됨)` + TODO 주석으로 백엔드 미연결. submitContactInquiry() axios POST → 슈퍼어드민 notification 발송. submitting 상태로 더블 제출 차단, 실패 시 detail 표시. | src/api/contactApi.js (신규), src/components/landing/ContactModal.jsx |
+| R32.8 | 2026-05-13 16:48 | **로컬 .env 작성 (운영 secret 미러)** — Vercel/Fly 환경변수만 두지 말고 로컬 .env 에도 동일 정리 요청. 운영값 미러 + dev 기본값(API_BASE/WS_URL localhost) + OAuth client id 동기. VITE_ODCLOUD_SERVICE_KEY / VITE_KAKAO_JS_KEY 는 통합 repo TEAM_PROJECT_2 frontend/.env 에서 동기화. | .env (신규, .gitignore 포함) |
+| R32.9 | 2026-05-13 17:30 | **통합 repo TEAM_PROJECT_2 동기화** — 분리 repo 의 7개 frontend 변경 파일(useWebSocket / useThermalData / thermalStore / ThermalOverlay / LiveVideoFeed / ContactModal / contactApi)을 통합 repo 에 그대로 복사. 통합 .env 는 이미 ODCLOUD/KAKAO_JS 가 채워져 있어 분리 repo placeholder 백필 소스로 사용. | TEAM_PROJECT_2_Drone_project/frontend/ |
+
+### 📐 설계 결정
+
+- **다중 채널 단일 연결 vs 채널당 소켓**: 후자는 N WebSocket 동시 보유 — Fly free tier 머신 메모리 + 클라이언트 브라우저 자원 낭비. 단일 연결로 콤마 분리 구독 (백엔드가 `register()` 분리로 accept 중복 없이 추가 등록) 채택 → 코드 단순 + 동일 핸드셰이크 비용.
+- **JWT 토큰 URL 쿼리 vs Subprotocol**: WebSocket 핸드셰이크에서 Bearer 헤더 추가가 표준 브라우저 API 로 불가능. 쿼리 파라미터 토큰은 로그/프록시 캐시 위험이 있지만 wss(TLS) + 단기 access token + 본인 채널만 검증이라 위험 작음. Sec-WebSocket-Protocol 우회는 표준 외이고 클라이언트/서버 모두 복잡 — 미채택.
+- **deps 에 token/userId 포함 → 재연결**: 로그아웃 시 본인 채널 구독을 즉시 해제하지 않으면 다음 사용자 로그인 시까지 이전 사용자 알림이 떠 있을 수 있음. useCallback deps 로 reactive 재연결 강제. mountedRef 로 언마운트 race 차단.
+- **defect.batch 가 단건처럼 forEach**: 배치 vs 단건 처리를 분기하면 testMediaReady 게이트 로직(시뮬레이션 첫 프레임 대기 큐) 이 두 군데 중복. pushDefect 단일 함수로 통합 → 게이트 통과 후 동일 경로.
+- **thermalStore 슬라이딩 윈도우 120 샘플**: 1fps × 120 = 2분 그래프. 더 길면 메모리 증가 + Recharts 렌더 비용. ThermalOverlay 는 latest 1건만 쓰지만, 동일 store 를 ThermalGraph (charts/) 가 공유해 일관 데이터 소스.
+- **Thermal 임계값 +3°C — 단열 결함 판정선**: 도메인 가이드. 향후 사이트별 조정 가능하도록 alertThreshold prop 노출.
+- **ContactModal — 비로그인 호출**: 랜딩 페이지 사용자가 가입 전이라도 문의해야 함 → /contact 백엔드는 무인증 (rate limit 으로 abuse 차단). Authorization 헤더 없어도 동작.
+
+### 🚨 안전성 영향
+
+- WS JWT 인증 도입 — 로그아웃 후에도 옛 알림이 새 사용자에게 누설되던 잠재 사고 차단. user_id 미스매치 채널 구독 시 백엔드가 묵시적 거부 → rejected 배열로 디버깅 가능.
+- 기존 카메라 모드 sync (다른 사용자가 mode 변경 시 내 화면도 따라옴) 가 처음으로 동작. 운영 환경에서 동기 카메라 워크플로 가능.
+- 빌드: `npm run build` 14.61s 통과 (×5 회 검증). 번들 크기 +0.3KB.
+
+### 🔍 자가검토 발견 갭 (보완 완료)
+
+| # | 갭 | 보완 |
+|---|---|---|
+| 1 | useWebSocket 단일 채널 → telemetry/camera/thermal 누락 | 다중 채널 ?channels= |
+| 2 | 본인 채널(notifications/user) 구독 부재 | JWT token + uid 자동 attach |
+| 3 | defect.batch 핸들러 없음 → AI batch 묵살 | forEach pushDefect |
+| 4 | useThermalData hook-instance 라 WS push 불가 | thermalStore 모듈 싱글톤 |
+| 5 | ThermalOverlay TODO placeholder | 실제 max/avg/min HUD + ALERT |
+| 6 | ContactModal handleSubmit 가 alert 만 (백엔드 미연결) | /contact 백엔드 + axios |
+| 7 | 로컬 .env 없음 → 환경변수 누락 시 dev 모드 부팅 실패 | 운영 secret 미러 + dev 기본값 |
+
+
+---
+
+## 🎯 R37 — test_mode 영상 60fps 아키텍처 (2026-05-15 15:30~15:45)
+
+> 사용자 피드백: "test mode 에서 첨부한 영상이 프레임 너무 낮은지 끊긴다" → MJPEG 재인코딩이 Fly 1 vCPU 결정적 병목임을 확인 → 원본 mp4 를 HTTP Range 로 직접 서빙 + `<video>` 네이티브 디코드 + SVG 오버레이로 전환. 사용자 추가 요청: "60fps + Fly 30fps 안정". 백엔드 R28 동기.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| R37.1 | 2026-05-15 15:30 | **신규 컴포넌트 DetectionOverlay.jsx** — `<video>` 위 SVG bbox 레이어. testDetectionsStore detection 을 `video.currentTime ± 0.4s` 윈도우로 필터해 표시. `requestAnimationFrame` 33ms 폴링(timeupdate 250ms 보다 부드럽게). SVG viewBox = frame_w × frame_h 로 원본 좌표 1:1 매핑. | src/components/video/DetectionOverlay.jsx (신규) |
+| R37.2 | 2026-05-15 15:35 | **신규 hook useTestActiveMedia.js** — `/api/v1/stream/test/active` 2초 폴링. `{kind, filename, fps, duration, frame_w, frame_h}` 반환 + testDetectionsStore activeFilename 동기화(영상 교체 시 detection clear). | src/hooks/useTestActiveMedia.js (신규) |
+| R37.3 | 2026-05-15 15:38 | **신규 store testDetectionsStore.js** — video_timestamp_sec 키 detection 타임라인. ingest() 가 timestamp 정렬 + 중복 차단. defectStore 와 분리(카드 패널 vs 오버레이 책임 분리). | src/store/testDetectionsStore.js (신규) |
+| R37.4 | 2026-05-15 15:40 | **LiveVideoFeed isDirectVideoMode early-return + `<video>`** — active.kind===video && cameraMode===rgb && fill 이면 `<video src=/test/upload/file/{name}>` + `<DetectionOverlay>` 렌더. testPlayState (playing/paused/stopped) → video.play/pause/seek 동기화. onLoadedMetadata 에서 markTestMediaReady. 좌하단 `DIRECT · {fps}fps · {filename}` 디버그 뱃지. | src/components/video/LiveVideoFeed.jsx |
+| R37.5 | 2026-05-15 15:42 | **useWebSocket pushDefect 확장** — video_timestamp_sec 가 있으면 testDetectionsStore.ingest() 호출(기존 defectStore 라우팅 유지). | src/hooks/useWebSocket.js |
+
+### 📐 설계 결정
+
+- 카드 패널 store (defectStore) 와 오버레이 store (testDetectionsStore) 분리: 정렬 책임이 달라서 한 store 에 섞으면 깨지기 쉬움.
+- `<video>` autoPlay + muted + playsInline: 모바일/사파리 정책 허용 조건.
+- HEVC/H.265 비호환 mp4 는 일부 브라우저 디코드 불가 — H.264 baseline 권장.
+- Detection 누적 후 2회 재생 시 처음 구간에도 bbox 표시되는 게 의도(재시청 UX).
+
+### ✅ 검증
+
+- `vite build`: 15.66s OK, 4.85MB chunk.
+- 빌드 후 미디어가 영상이면 <video>, 이미지면 기존 MJPEG <img> 자동 분기.
+- 추론 결과 ±0.4s 윈도우 안에서만 오버레이 점멸.

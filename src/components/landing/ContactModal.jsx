@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { checkBusinessStatus, interpretStatus } from '../../api/businessVerifyApi'
+import { submitContactInquiry } from '../../api/contactApi.js'
 import useAuthStore from '../../store/authStore.js'
 
 const INITIAL_FORM = {
@@ -93,15 +94,37 @@ export default function ContactModal({ isOpen, onClose }) {
     }
   }
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (isBusiness && verifyState.status !== 'success') {
       alert('사업자등록번호 진위 확인을 먼저 완료해주세요.')
       return
     }
-    // TODO: 백엔드 상담 신청 API 연동
-    alert('상담 신청이 접수되었습니다. 빠른 시일 내 연락드리겠습니다.')
-    onClose()
+    if (submitting) return
+
+    setSubmitting(true)
+    try {
+      await submitContactInquiry({
+        customer_type: form.customerType,
+        biz_number: isBusiness ? form.bizNumber.trim() : null,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        message: form.message.trim(),
+      })
+      alert('상담 신청이 접수되었습니다. 빠른 시일 내 연락드리겠습니다.')
+      onClose()
+    } catch (err) {
+      const detail =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        '알 수 없는 오류'
+      alert(`전송 실패: ${detail}`)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const verifyTextClass = {
@@ -273,9 +296,10 @@ export default function ContactModal({ isOpen, onClose }) {
 
           <button
             type="submit"
-            className="w-full bg-blue-700 text-white font-bold text-base py-3 rounded-xl hover:bg-blue-800 transition shadow-lg"
+            disabled={submitting}
+            className="w-full bg-blue-700 text-white font-bold text-base py-3 rounded-xl hover:bg-blue-800 transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            상담 신청하기
+            {submitting ? '전송 중...' : '상담 신청하기'}
           </button>
         </form>
       </div>

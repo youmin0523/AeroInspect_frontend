@@ -55,6 +55,19 @@ const useDroneStore = create((set, get) => ({
   missionStartedAt: null,
   missionEndedAt: null,
 
+  // ── L3 자율비행 LiDAR 스캔 ───────────────
+  // //* [Modified Code 2026-05-13] 백엔드 자율비행 시뮬레이터(또는 실제 ROS2 LiDAR)
+  // 가 WS 'lidar.points' 이벤트로 발행하는 점들을 누적. BuildingMesh L3 가 구독.
+  // - lidarMissionId: 현재 진행 중인 미션 id (autonomous-scan/start 응답)
+  // - lidarPoints:    Float32Array (xyz xyz xyz ...) — 추가 시 새 배열로 교체(불변성)
+  // - lidarPointCount: lidarPoints.length / 3
+  // - lidarMissionStatus: 'idle' | 'scanning' | 'completed' | 'failed' | 'cancelled'
+  lidarMissionId: null,
+  lidarPoints: null,
+  lidarPointCount: 0,
+  lidarMissionStatus: 'idle',
+  lidarMissionMeta: null, // { worldW, worldD, sizeSource, estimatedDurationS, wallsCount }
+
   // ── Actions ─────────────────────────────
 
   /** WebSocket 연결 상태 업데이트 */
@@ -103,6 +116,55 @@ const useDroneStore = create((set, get) => ({
     set({ missionStatus: 'ended', missionEndedAt: Date.now() })
   },
 
+  // ── L3 LiDAR Actions ───────────────────────
+  /** 자율비행 미션 시작 — missionApi.startAutonomousScan() 응답 받아 호출 */
+  beginLidarMission: ({ missionId, worldW, worldD, sizeSource, estimatedDurationS, wallsCount }) =>
+    set({
+      lidarMissionId: missionId,
+      lidarPoints: new Float32Array(0),
+      lidarPointCount: 0,
+      lidarMissionStatus: 'scanning',
+      lidarMissionMeta: { worldW, worldD, sizeSource, estimatedDurationS, wallsCount },
+    }),
+
+  /** WS 'lidar.points' 수신 시 점 누적. points: [[x,y,z], ...] */
+  appendLidarPoints: (points) => {
+    if (!points || points.length === 0) return
+    const state = get()
+    if (state.lidarMissionStatus !== 'scanning') return // 종료 후 들어온 잔여 점 무시
+    const prev = state.lidarPoints || new Float32Array(0)
+    const merged = new Float32Array(prev.length + points.length * 3)
+    merged.set(prev, 0)
+    let i = prev.length
+    for (const [x, y, z] of points) {
+      merged[i++] = x
+      merged[i++] = y
+      merged[i++] = z
+    }
+    set({ lidarPoints: merged, lidarPointCount: merged.length / 3 })
+  },
+
+  /** WS 'mission.completed' 수신 시 호출 */
+  finishLidarMission: () => {
+    if (get().lidarMissionStatus !== 'scanning') return
+    set({ lidarMissionStatus: 'completed' })
+  },
+
+  /** WS 'mission.failed' 또는 사용자 취소 시 */
+  failLidarMission: (reason) => {
+    set({ lidarMissionStatus: reason === 'cancelled' ? 'cancelled' : 'failed' })
+  },
+
+  /** L3 진입 직전 / 새 미션 시작 직전 초기화 */
+  resetLidarMission: () =>
+    set({
+      lidarMissionId: null,
+      lidarPoints: null,
+      lidarPointCount: 0,
+      lidarMissionStatus: 'idle',
+      lidarMissionMeta: null,
+    }),
+
   /** 전체 초기화 */
   reset: () =>
     set({
@@ -118,6 +180,11 @@ const useDroneStore = create((set, get) => ({
       missionStatus: 'idle',
       missionStartedAt: null,
       missionEndedAt: null,
+      lidarMissionId: null,
+      lidarPoints: null,
+      lidarPointCount: 0,
+      lidarMissionStatus: 'idle',
+      lidarMissionMeta: null,
     }),
 }))
 

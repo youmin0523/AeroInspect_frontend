@@ -43,6 +43,12 @@ const useSessionStore = create(
       uploadedImageDataUrl: null, // L2 전용: BuildingMesh 텍스처용 base64 (persist)
       wallsData: null,            // 벽체 좌표 [{x1,y1,x2,y2}, ...] (0-1 정규화)
       outline: null,              // 건물 외곽 다각형 [{x,y}, ...] (0-1 정규화, 닫힘)
+      // //* [Modified Code 2026-05-13] 정확한 치수 산출용
+      imageWidth: null,           // 원본 이미지 가로(px) — 종횡비 보존용
+      imageHeight: null,          // 원본 이미지 세로(px)
+      scalePxPerMeter: null,      // calibrate 결과 — 있으면 실측 미터 단위 렌더
+      // //* [Modified Code 2026-05-13] 가구/빌트인 — 자율비행 충돌 회피용
+      furnitureData: null,        // [{cx,cy,w,h,angle,label}, ...] (0-1 정규화)
       modelStatus: 'pending', // 'pending' | 'modeling' | 'ready'
       modelProgress: 0,
       modelStage: '',
@@ -94,6 +100,10 @@ const useSessionStore = create(
           uploadedImageDataUrl: null,
           wallsData: null,
           outline: null,
+          imageWidth: null,
+          imageHeight: null,
+          scalePxPerMeter: null,
+          furnitureData: null,
           modelStatus: 'pending',
           modelProgress: 0,
           modelStage: '',
@@ -103,7 +113,7 @@ const useSessionStore = create(
 
       /**
        * 사전 모델 선택 — /session/level 에서 pre-made model 클릭 시.
-       * preModel: { id, level, fileName, imageDataUrl, wallsData, outline }
+       * preModel: { id, level, fileName, imageDataUrl, wallsData, outline, imageWidth, imageHeight, scalePxPerMeter }
        */
       selectPreModel: (preModel) =>
         set({
@@ -115,6 +125,10 @@ const useSessionStore = create(
           uploadedImageDataUrl: preModel.imageDataUrl ?? null,
           wallsData: preModel.wallsData ?? null,
           outline: preModel.outline ?? null,
+          imageWidth: preModel.imageWidth ?? null,
+          imageHeight: preModel.imageHeight ?? null,
+          scalePxPerMeter: preModel.scalePxPerMeter ?? null,
+          furnitureData: preModel.furnitureData ?? null,
           modelStatus: 'pending',
           modelProgress: 0,
           modelStage: '',
@@ -131,6 +145,10 @@ const useSessionStore = create(
           uploadedImageDataUrl: null,
           wallsData: null,
           outline: null,
+          imageWidth: null,
+          imageHeight: null,
+          scalePxPerMeter: null,
+          furnitureData: null,
           modelStatus: 'pending',
           modelProgress: 0,
           modelStage: '',
@@ -218,6 +236,10 @@ const useSessionStore = create(
           uploadedImageDataUrl: null,
           wallsData: null,
           outline: null,
+          imageWidth: null,
+          imageHeight: null,
+          scalePxPerMeter: null,
+          furnitureData: null,
           sessionId: `test-${crypto.randomUUID()}`,
           startedAt: Date.now(),
           finishedAt: null,
@@ -258,6 +280,10 @@ const useSessionStore = create(
           uploadedImageDataUrl: null,
           wallsData: null,
           outline: null,
+          imageWidth: null,
+          imageHeight: null,
+          scalePxPerMeter: null,
+          furnitureData: null,
           modelStatus: 'pending',
           modelProgress: 0,
           modelStage: '',
@@ -294,6 +320,10 @@ const useSessionStore = create(
         uploadedImageDataUrl: state.uploadedImageDataUrl,
         wallsData: state.wallsData,
         outline: state.outline,
+        imageWidth: state.imageWidth,
+        imageHeight: state.imageHeight,
+        scalePxPerMeter: state.scalePxPerMeter,
+        furnitureData: state.furnitureData,
         modelStatus: state.modelStatus,
         modelSource: state.modelSource,
         loadedPreModelId: state.loadedPreModelId,

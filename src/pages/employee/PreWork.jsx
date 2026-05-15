@@ -2,12 +2,19 @@
  * pages/employee/PreWork.jsx
  * 역할: 사무실 사전 작업 — `/employee/pre-work`
  *       - 현장 라벨 입력 → Level 선택(L1 CAD / L2 평면도) → 파일 업로드
- *       - L2: 백엔드 OpenCV 벽체 추출 → 3D 프리뷰 표시 → preModelStore 라이브러리에 저장
+ *       - L1: 백엔드 /upload + /process (DXF LINE 추출) → 3D 프리뷰 → preModel 저장
+ *       - L2: 백엔드 /validate(품질 게이트) → /analyze (OpenCV 벽체 추출) → 3D 프리뷰 → preModel 저장
  *       - 직원 랜딩(`/employee`) 의 "도면 업로드 · 사전 작업" 카드가 여기로 진입
+ *
+ *   //* [Modified Code 2026-05-13]
+ *     - raw fetch → floorplanApi (axios) 로 교체, 실제 onUploadProgress 사용
+ *     - 클라이언트 사전 검증(파일 크기/타입) 으로 무의미한 백엔드 트래픽 차단
+ *     - L2: /validate 품질 게이트 추가 — rejected 시 차단, warning 시 경고 후 진행
+ *     - L1: 가짜 setTimeout 제거하고 실제 백엔드 DXF 처리 호출
+ *     - imageWidth/imageHeight 받아 preModel 에 저장 → BuildingMesh 종횡비 보존
  *
  *   UX 경계선 (memory: project_ux_boundary_employee_vs_session):
  *     이 페이지는 "사무실" 맥락이다 — 실시간 드론 HUD 나 현장 요소를 섞지 말 것.
- *     `/employee` 랜딩과 같은 톤(흰 배경 + blue/yellow accent + 카드 레이아웃) 유지.
  */
 
 import { Suspense, useRef, useState } from 'react'
@@ -25,27 +32,35 @@ import {
   Loader2,
   Trash2,
   Eye,
+  AlertTriangle,
 } from 'lucide-react'
 import FileDropzone from '../../components/session/FileDropzone.jsx'
 import BuildingMesh from '../../components/map3d/BuildingMesh.jsx'
 import usePreModelStore from '../../store/preModelStore.js'
+import {
+  preflightFloorplanFile,
+  validateFloorplan,
+  analyzeFloorplan,
+  uploadAndProcessCad,
+  describeFloorplanError,
+} from '../../api/floorplanApi.js'
 
 const LEVEL_CHOICES = [
   {
     level: 1,
     icon: FileText,
     title: 'CAD 도면',
-    desc: 'DWG / DXF / IFC 형식의 설계 도면을 업로드합니다.',
+    desc: 'DWG / DXF / IFC 형식의 설계 도면을 업로드합니다. (현재 DXF 만 실제 처리 — DWG/IFC 는 향후 지원)',
     accept: '.dwg,.dxf,.ifc',
-    hint: 'DWG · DXF · IFC 파일 지원',
+    hint: 'DWG · DXF · IFC 파일 (최대 50MB)',
   },
   {
     level: 2,
     icon: ImageIcon,
     title: '평면도 이미지',
     desc: 'PNG / JPG / WEBP 형식의 평면도 스캔 이미지를 업로드합니다.',
-    accept: 'image/*',
-    hint: 'PNG · JPG · WEBP 이미지',
+    accept: 'image/jpeg,image/png,image/webp',
+    hint: 'JPG · PNG · WEBP 이미지 (50KB ~ 25MB)',
   },
 ]
 
@@ -57,38 +72,66 @@ export default function PreWork() {
 
   const [siteLabel, setSiteLabel] = useState('')
   const [level, setLevel] = useState(2) // 기본: 평면도 이미지
-  const [fileMeta, setFileMeta] = useState(null) // { name, size, imageDataUrl }
+  const [fileMeta, setFileMeta] = useState(null) // { name, size, imageDataUrl, imageWidth, imageHeight }
   const [status, setStatus] = useState('pending') // pending | modeling | ready
   const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState('')
   const [error, setError] = useState(null)
-  const [wallsData, setWallsData] = useState(null) // 추출된 벽체 좌표
-  const [outline, setOutline] = useState(null)     // 건물 외곽 다각형
+  const [warnings, setWarnings] = useState([])    // /validate 의 warnings
+  const [wallsData, setWallsData] = useState(null)
+  const [outline, setOutline] = useState(null)
+  const [imageWidth, setImageWidth] = useState(null)
+  const [imageHeight, setImageHeight] = useState(null)
+  // //* [Modified Code 2026-05-13] 가구 — 자율비행 충돌 회피용
+  const [furnitureData, setFurnitureData] = useState(null)
 
-  // 실제 File 객체 보관 (API 전송용 — state 에 넣으면 직렬화 문제)
+  // 실제 File 객체 보관 (API 전송용)
   const fileObjRef = useRef(null)
 
   const cfg = LEVEL_CHOICES.find((c) => c.level === level) ?? LEVEL_CHOICES[1]
-  const canStart = siteLabel.trim().length >= 2 && fileMeta && status === 'pending'
+  const canStart = siteLabel.trim().length >= 2 && fileMeta && status === 'pending' && !error
 
   const handleFile = async (file) => {
     if (!file) {
       setFileMeta(null)
       fileObjRef.current = null
+      setError(null)
       return
     }
+
+    // 클라이언트 사전 검증 — 백엔드 도달 전 거름망
+    const kind = level === 2 ? 'image' : 'cad'
+    const pre = preflightFloorplanFile(file, kind)
+    if (!pre.ok) {
+      setError(pre.error)
+      setFileMeta(null)
+      fileObjRef.current = null
+      return
+    }
+
     fileObjRef.current = file
     const isImage = file.type?.startsWith('image/')
     let imageDataUrl = null
+    let imgW = null
+    let imgH = null
+
     if (isImage) {
       imageDataUrl = await readAsDataUrl(file)
+      // 이미지 크기 사전 추출 — 종횡비 보존 + 백엔드 응답 검증용
+      const dims = await readImageDimensions(imageDataUrl)
+      imgW = dims.width
+      imgH = dims.height
     }
+
     setFileMeta({
       name: file.name,
       size: file.size,
       imageDataUrl,
+      imageWidth: imgW,
+      imageHeight: imgH,
     })
     setError(null)
+    setWarnings([])
   }
 
   const handleChangeLevel = (lv) => {
@@ -97,51 +140,66 @@ export default function PreWork() {
     setFileMeta(null)
     fileObjRef.current = null
     setError(null)
+    setWarnings([])
     setWallsData(null)
     setOutline(null)
+    setImageWidth(null)
+    setImageHeight(null)
+    setFurnitureData(null)
   }
 
-  /** 모델링 시작 — L2: 백엔드 OpenCV 벽체 추출 API 호출 */
+  /** 모델링 시작 — Level 별 백엔드 호출 분기 */
   const handleStart = async () => {
     if (!canStart) return
     setStatus('modeling')
-    setProgress(10)
-    setStage('파일 업로드 중...')
+    setProgress(0)
+    setStage('파일 검증 중...')
     setError(null)
+    setWarnings([])
     setWallsData(null)
     setOutline(null)
 
+    const file = fileObjRef.current
+    if (!file) {
+      setError('파일이 누락되었습니다. 다시 선택해주세요.')
+      setStatus('pending')
+      return
+    }
+
     try {
-      if (level === 2 && fileObjRef.current) {
-        // L2: 실제 백엔드 OpenCV 벽체 추출
-        const formData = new FormData()
-        formData.append('file', fileObjRef.current)
+      if (level === 2) {
+        // ── L2: 평면도 이미지 ─────────────────────────
+        // (1) 품질 게이트 — rejected 면 차단, warning 이면 사용자에게 알리고 진행
+        setStage('이미지 품질 검증 중...')
+        setProgress(5)
+        const validation = await validateFloorplan(file)
 
-        setProgress(25)
-        setStage('서버로 전송 중...')
-
-        const response = await fetch('/api/v1/floorplan/analyze', {
-          method: 'POST',
-          body: formData,
-        })
-
-        setProgress(60)
-        setStage('OpenCV 벽체 추출 중...')
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}))
-          throw new Error(err.detail || `서버 오류 (${response.status})`)
+        if (validation.status === 'rejected') {
+          throw new Error(
+            `이미지 품질이 낮아 처리를 중단했습니다 (점수 ${validation.score}). ${validation.errors.join(' ')}`
+          )
+        }
+        if (validation.status === 'warning') {
+          setWarnings(validation.warnings)
+          // warning 은 차단하지 않고 진행
         }
 
-        const data = await response.json()
+        // (2) 벽체 추출
+        setStage('OpenCV 벽체 추출 중...')
+        const data = await analyzeFloorplan(file, (pct) => {
+          // analyze 의 진행률은 10-95 구간으로 매핑 (검증 5%, 추출 90%)
+          setProgress(10 + Math.round(pct * 0.85))
+        })
 
-        setProgress(90)
-        setStage('3D 모델 생성 중...')
-
-        await new Promise((r) => setTimeout(r, 500))
+        setStage('3D 프리뷰 생성...')
+        setProgress(98)
 
         setWallsData(data.walls)
         setOutline(data.outline)
+        setImageWidth(data.image_width)
+        setImageHeight(data.image_height)
+        // //* [Modified Code 2026-05-13] 가구 — 자율비행 충돌 회피용
+        setFurnitureData(data.furniture ?? [])
 
         addPreModel({
           siteName: siteLabel.trim(),
@@ -151,32 +209,60 @@ export default function PreWork() {
           imageDataUrl: fileMeta.imageDataUrl,
           wallsData: data.walls,
           outline: data.outline,
+          imageWidth: data.image_width,
+          imageHeight: data.image_height,
+          furnitureData: data.furniture ?? [],
         })
 
         setProgress(100)
-        setStage(`완료 — ${data.wall_count}개 벽체 + 외곽 윤곽선 추출`)
+        setStage(`완료 — 벽 ${data.wall_count}개 + 외곽 ${data.outline?.length ?? 0}점 + 가구 ${data.furniture_count ?? 0}개 추출`)
         setStatus('ready')
       } else {
-        // L1(CAD) 은 아직 mock — 향후 백엔드 파서 연결
-        setStage('도면 파싱 중... (데모)')
-        await new Promise((r) => setTimeout(r, 2000))
-        setProgress(100)
-        setStage('완료')
+        // ── L1: CAD 도면 ─────────────────────────
+        // DXF 만 실제 백엔드 처리. DWG/IFC 는 백엔드 미지원 → 명확히 안내
+        const lower = (file.name || '').toLowerCase()
+        if (!lower.endsWith('.dxf')) {
+          throw new Error('현재 DXF 형식만 실제 처리 가능합니다. DWG/IFC 는 향후 지원 예정입니다.')
+        }
+
+        setStage('CAD 파일 업로드 중...')
+        const data = await uploadAndProcessCad(file, (pct) => setProgress(pct))
+
+        if (!data.walls || data.walls.length === 0) {
+          throw new Error('CAD 파일에서 벽체(LINE 엔티티)를 찾지 못했습니다. 다른 도면을 시도해주세요.')
+        }
+
+        setStage('3D 프리뷰 생성...')
+
+        setWallsData(data.walls)
+        setOutline(data.outline ?? [])
+        // CAD 는 픽셀 이미지가 아니지만 BuildingMesh 종횡비 산출을 위해 image_width/height 활용
+        // /process 응답이 image_width/height 를 안 주므로 outline/walls bbox 에 의존 (deriveSceneSize 가 처리)
+        setImageWidth(null)
+        setImageHeight(null)
+        // L1 DXF 는 가구를 별도 추출하지 않음 (LINE 만 처리) → 빈 배열
+        setFurnitureData(data.furniture ?? [])
 
         addPreModel({
           siteName: siteLabel.trim(),
           level,
           fileName: fileMeta.name,
           fileSize: fileMeta.size,
-          imageDataUrl: fileMeta.imageDataUrl,
-          wallsData: null,
-          outline: null,
+          imageDataUrl: null,
+          wallsData: data.walls,
+          outline: data.outline ?? [],
+          imageWidth: null,
+          imageHeight: null,
+          furnitureData: data.furniture ?? [],
         })
+
+        setProgress(100)
+        setStage(`완료 — DXF LINE ${data.wall_count}개 + 가구 ${data.furniture_count ?? 0}개 추출`)
         setStatus('ready')
       }
     } catch (err) {
-      console.error('[PreWork] 벽체 추출 실패:', err)
-      setError(err.message || '벽체 추출에 실패했습니다. 백엔드 서버가 실행 중인지 확인하세요.')
+      console.error('[PreWork] 모델링 실패:', err)
+      setError(describeFloorplanError(err))
       setStatus('pending')
       setProgress(0)
       setStage('')
@@ -191,8 +277,11 @@ export default function PreWork() {
     setProgress(0)
     setStage('')
     setError(null)
+    setWarnings([])
     setWallsData(null)
     setOutline(null)
+    setImageWidth(null)
+    setImageHeight(null)
     setLevel(2)
   }
 
@@ -304,8 +393,17 @@ export default function PreWork() {
                 file={fileMeta ? { name: fileMeta.name, size: fileMeta.size } : null}
                 previewUrl={fileMeta?.imageDataUrl}
                 onFile={handleFile}
-                onClear={() => { setFileMeta(null); fileObjRef.current = null }}
+                onClear={() => {
+                  setFileMeta(null)
+                  fileObjRef.current = null
+                  setError(null)
+                }}
               />
+              {fileMeta?.imageWidth && fileMeta?.imageHeight && (
+                <p className="text-[11px] text-gray-500 mt-2 font-mono">
+                  원본 {fileMeta.imageWidth} × {fileMeta.imageHeight} px (종횡비 {(fileMeta.imageWidth / fileMeta.imageHeight).toFixed(2)})
+                </p>
+              )}
             </div>
           )}
 
@@ -329,7 +427,7 @@ export default function PreWork() {
                   <div className="text-[11px] text-gray-500 font-mono">
                     {status === 'ready'
                       ? '세션 Level 선택 화면에서 이 현장 라벨을 입력하면 자동 노출됩니다'
-                      : '백엔드에서 벽체를 추출 중입니다...'}
+                      : '백엔드에서 처리 중입니다...'}
                   </div>
                 </div>
               </div>
@@ -347,13 +445,30 @@ export default function PreWork() {
             </div>
           )}
 
-          {/* 5) 3D 프리뷰 — 벽체 추출 완료 시 */}
+          {/* 5) 품질 검증 경고 */}
+          {warnings.length > 0 && status === 'ready' && (
+            <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-amber-800 mb-1">이미지 품질 경고 (처리는 진행됨)</p>
+                  <ul className="text-[11px] text-amber-700 list-disc list-inside space-y-0.5">
+                    {warnings.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6) 3D 프리뷰 — 벽체 추출 완료 시 */}
           {status === 'ready' && wallsData && wallsData.length > 0 && (
             <div className="mb-6 rounded-xl border border-gray-200 bg-slate-900 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
                 <Eye size={14} className="text-blue-400" />
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  3D 프리뷰 — {wallsData.length}개 벽체
+                  3D 프리뷰 — 벽 {wallsData.length}
+                  {outline?.length ? ` · 외곽 ${outline.length}` : ''}
+                  {furnitureData?.length ? ` · 가구 ${furnitureData.length}` : ''}
                 </span>
               </div>
               <div className="h-72 md:h-80">
@@ -371,10 +486,13 @@ export default function PreWork() {
                   <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow />
                   <Suspense fallback={null}>
                     <BuildingMesh
-                      level={2}
+                      level={level}
                       imageUrl={fileMeta?.imageDataUrl}
                       wallsData={wallsData}
                       outline={outline}
+                      imageWidth={imageWidth ?? fileMeta?.imageWidth}
+                      imageHeight={imageHeight ?? fileMeta?.imageHeight}
+                      furnitureData={furnitureData}
                     />
                   </Suspense>
                 </Canvas>
@@ -388,7 +506,7 @@ export default function PreWork() {
             </div>
           )}
 
-          {/* 6) 액션 버튼 */}
+          {/* 7) 액션 버튼 */}
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -451,7 +569,9 @@ export default function PreWork() {
                     <p className="text-sm font-semibold text-slate-800 truncate break-keep">{m.siteName}</p>
                     <p className="text-xs text-gray-500 mt-0.5 font-mono truncate">
                       L{m.level} · {m.fileName}
-                      {m.wallsData ? ` · ${m.wallsData.length}벽체` : ''}
+                      {m.wallsData ? ` · 벽 ${m.wallsData.length}` : ''}
+                      {m.furnitureData?.length ? ` · 가구 ${m.furnitureData.length}` : ''}
+                      {m.imageWidth && m.imageHeight ? ` · ${m.imageWidth}×${m.imageHeight}px` : ''}
                       {' · '}{new Date(m.createdAt).toLocaleString('ko-KR')}
                     </p>
                   </div>
@@ -479,5 +599,14 @@ function readAsDataUrl(file) {
     reader.onload = () => resolve(reader.result)
     reader.onerror = reject
     reader.readAsDataURL(file)
+  })
+}
+
+function readImageDimensions(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = reject
+    img.src = dataUrl
   })
 }

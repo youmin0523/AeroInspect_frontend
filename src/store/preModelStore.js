@@ -30,6 +30,10 @@ const usePreModelStore = create(
        *     imageDataUrl: string | null,  // L2 전용: BuildingMesh 바닥 텍스처 용 base64
        *     wallsData: array | null,      // 벽체 좌표 [{x1,y1,x2,y2}, ...] (0-1 정규화)
        *     outline: array | null,        // 건물 외곽 다각형 [{x,y}, ...] (0-1 정규화, 닫힘)
+       *     imageWidth: number | null,    // 원본 이미지 가로(px) — 종횡비 보존용
+       *     imageHeight: number | null,   // 원본 이미지 세로(px)
+       *     scalePxPerMeter: number | null, // calibrate 결과 — 있으면 실측 미터 단위
+       *     furnitureData: array | null,  // 가구 [{cx,cy,w,h,angle,label}, ...] — 자율비행 회피용
        *     createdAt: number (ms),
        *   }
        * ]
@@ -50,6 +54,10 @@ const usePreModelStore = create(
               imageDataUrl: model.imageDataUrl ?? null,
               wallsData: model.wallsData ?? null,
               outline: model.outline ?? null,
+              imageWidth: model.imageWidth ?? null,
+              imageHeight: model.imageHeight ?? null,
+              scalePxPerMeter: model.scalePxPerMeter ?? null,
+              furnitureData: model.furnitureData ?? null,
               createdAt: Date.now(),
             },
           ],

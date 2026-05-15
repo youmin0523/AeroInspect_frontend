@@ -3,9 +3,14 @@
  * 역할: 세션 Step 3 — modelSource 에 따라 2가지 분기
  *
  *   (A) modelSource='premodel' → 짧은 로드 애니메이션 (2.5초) → ready
- *   (B) modelSource='drone' → 11초 Mock 시뮬레이션
+ *   (B) modelSource='drone' → L3 자율비행 + LiDAR 스캔
+ *       - 사전 모델이 있으면 그 walls 로 raycast 환경 구성 (백엔드 시뮬레이터)
+ *       - 없으면 Mock 11초 폴백 (UI 만)
  *
  *   완료 후 1.8초 대기 → /dashboard 자동 진입
+ *
+ *   //* [Modified Code 2026-05-13] L3 분기에 startAutonomousScan() 호출 추가.
+ *   백엔드 시뮬레이터가 WS 'lidar.points' 이벤트로 점 누적 → BuildingMesh L3 가 시각화.
  */
 
 import { useEffect, useState } from 'react'
@@ -13,6 +18,10 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Loader2, Check, Download, Ruler, AlertTriangle } from 'lucide-react'
 import ModelingProgress from '../../components/session/ModelingProgress.jsx'
 import useSessionStore from '../../store/sessionStore.js'
+import useDroneStore from '../../store/droneStore.js'
+import usePreModelStore from '../../store/preModelStore.js'
+import { startAutonomousScan, cancelMission } from '../../api/missionApi.js'
+import { describeFloorplanError } from '../../api/floorplanApi.js'
 
 export default function SessionModeling() {
   const navigate = useNavigate()
@@ -25,7 +34,24 @@ export default function SessionModeling() {
     startModeling,
     cancelModeling,
   } = useSessionStore()
-  const setSessionInfo = useSessionStore((s) => s.setSessionInfo)
+
+  // L3 자율비행 입력: 사전 모델이 있으면 그 walls/outline 사용 — 없으면 빈 환경 폴백
+  const loadedPreModelId = useSessionStore((s) => s.loadedPreModelId)
+  const wallsData = useSessionStore((s) => s.wallsData)
+  const outline = useSessionStore((s) => s.outline)
+  const imageWidth = useSessionStore((s) => s.imageWidth)
+  const imageHeight = useSessionStore((s) => s.imageHeight)
+  const scalePxPerMeter = useSessionStore((s) => s.scalePxPerMeter)
+  const furnitureData = useSessionStore((s) => s.furnitureData)
+
+  const beginLidarMission = useDroneStore((s) => s.beginLidarMission)
+  const resetLidarMission = useDroneStore((s) => s.resetLidarMission)
+  const lidarMissionId = useDroneStore((s) => s.lidarMissionId)
+  const lidarMissionStatus = useDroneStore((s) => s.lidarMissionStatus)
+  const lidarPointCount = useDroneStore((s) => s.lidarPointCount)
+  const failLidarMission = useDroneStore((s) => s.failLidarMission)
+
+  const [missionError, setMissionError] = useState(null)
 
   // L2 사전 모델 + 면적 미입력 시 안내
   const isL2NoArea = modelSource === 'premodel' && level === 2 && !inspectionArea
@@ -73,6 +99,81 @@ export default function SessionModeling() {
   const isPreModel = modelSource === 'premodel'
   const isDrone = modelSource === 'drone'
 
+  /**
+   * L3 자율비행 시작 핸들러.
+   * 1) 백엔드 startAutonomousScan() → mission_id 반환
+   * 2) droneStore.beginLidarMission() 으로 점 누적 시작
+   * 3) sessionStore mockModeling 도 병행 (UI 진행률용)
+   * 4) WS 'mission.completed' 시 droneStore.finishLidarMission() 자동 호출 (useWebSocket)
+   *
+   * walls 우선순위:
+   *   (a) sessionStore.wallsData (사전 모델 또는 calibration 결과)
+   *   (b) 폴백: 8×6m 빈 사각형 방 — "도면 없는 현장" 데모용 raycast 환경
+   *       (실제 드론/Gazebo 환경에서는 ros2 lidar 토픽이 그 자리를 대신)
+   */
+  const handleStartDroneScan = async () => {
+    setMissionError(null)
+    resetLidarMission()
+
+    // walls 가 없으면 빈 사각형 방 폴백 — 자율비행 시뮬은 항상 동작해야 함
+    let effWalls = wallsData
+    let effOutline = outline ?? []
+    let effW = imageWidth
+    let effH = imageHeight
+    if (!effWalls || effWalls.length === 0) {
+      // 사각형 외벽 4면 (정규화 0-1, 닫힌 다각형)
+      effWalls = [
+        { x1: 0.02, y1: 0.02, x2: 0.98, y2: 0.02 },
+        { x1: 0.98, y1: 0.02, x2: 0.98, y2: 0.98 },
+        { x1: 0.98, y1: 0.98, x2: 0.02, y2: 0.98 },
+        { x1: 0.02, y1: 0.98, x2: 0.02, y2: 0.02 },
+      ]
+      effOutline = [
+        { x: 0.02, y: 0.02 }, { x: 0.98, y: 0.02 },
+        { x: 0.98, y: 0.98 }, { x: 0.02, y: 0.98 },
+      ]
+      effW = 800
+      effH = 600
+    }
+
+    try {
+      const res = await startAutonomousScan({
+        walls: effWalls,
+        outline: effOutline,
+        // //* [Modified Code 2026-05-13] 가구 — 드론 충돌 회피 + LiDAR raycast
+        furniture: furnitureData ?? [],
+        imageWidth: effW,
+        imageHeight: effH,
+        scalePxPerMeter,
+      })
+      beginLidarMission({
+        missionId: res.mission_id,
+        worldW: res.world_w,
+        worldD: res.world_d,
+        sizeSource: res.size_source,
+        estimatedDurationS: res.estimated_duration_s,
+        wallsCount: res.walls_count,
+      })
+      // sessionStore 모델링 UI 도 시작 (대시보드 진입 게이트 통과용)
+      startModeling()
+    } catch (err) {
+      console.error('[L3] 자율비행 미션 시작 실패:', err)
+      setMissionError(describeFloorplanError(err))
+      failLidarMission('failed')
+      // 백엔드 실패 시에도 사용자가 막히지 않도록 mock 진행
+      startModeling()
+    }
+  }
+
+  /** 미션 취소 — 백엔드 취소 + sessionStore 취소 */
+  const handleCancelDroneScan = async () => {
+    if (lidarMissionId) {
+      try { await cancelMission(lidarMissionId) } catch (e) { /* noop */ }
+      failLidarMission('cancelled')
+    }
+    cancelModeling()
+  }
+
   return (
     <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">
@@ -90,10 +191,37 @@ export default function SessionModeling() {
           <div className="w-14 h-14 mx-auto rounded-xl bg-accent-50 border border-accent-500/30 flex items-center justify-center mb-3">
             <Play size={22} className="text-accent-500" />
           </div>
-          <p className="text-sm text-gray-700 mb-1 font-semibold">시뮬레이션 준비 완료</p>
+          <p className="text-sm text-gray-700 mb-1 font-semibold">자율비행 LiDAR 스캔 준비 완료</p>
           <p className="text-xs text-gray-500 break-keep">
-            "3D 시뮬레이션 시작" 을 누르면 드론 가상 비행이 시작되며, 약 10초 후 3D 모델이 완성됩니다.
+            "3D 시뮬레이션 시작" 을 누르면 드론이 사전 격자 경로를 자율비행하며 360° LiDAR
+            스캔으로 점군을 누적합니다. (Gazebo 미가용 환경에서는 백엔드 raycast
+            시뮬레이터가 동등 데이터 흐름을 제공)
           </p>
+        </div>
+      )}
+
+      {/* L3 LiDAR 진행 상태 — 미션 진행 중 표시 */}
+      {isDrone && lidarMissionId && (
+        <div className="mb-6 rounded-xl border border-accent-500/30 bg-accent-50 px-4 py-3">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-accent-700 font-bold">
+              LiDAR · {lidarMissionStatus === 'scanning' ? '스캔 중' :
+                       lidarMissionStatus === 'completed' ? '완료' :
+                       lidarMissionStatus === 'failed' ? '실패' :
+                       lidarMissionStatus === 'cancelled' ? '취소됨' : '대기'}
+            </span>
+            <span className="text-gray-600 tabular-nums">{lidarPointCount}점 누적</span>
+          </div>
+        </div>
+      )}
+
+      {/* 미션 에러 */}
+      {isDrone && missionError && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={13} className="text-red-600 mt-0.5 shrink-0" />
+            <p className="text-xs text-red-700 break-keep">{missionError}</p>
+          </div>
         </div>
       )}
 
@@ -206,7 +334,7 @@ export default function SessionModeling() {
         {isDrone && !isModeling && !isReady && (
           <button
             type="button"
-            onClick={startModeling}
+            onClick={handleStartDroneScan}
             className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-accent-500 text-white font-bold text-sm hover:bg-accent-600 transition shadow-sm"
           >
             <Play size={14} /> 3D 시뮬레이션 시작
@@ -216,7 +344,7 @@ export default function SessionModeling() {
         {isModeling && (
           <button
             type="button"
-            onClick={cancelModeling}
+            onClick={isDrone ? handleCancelDroneScan : cancelModeling}
             disabled={isPreModel}
             className="flex items-center gap-2 px-5 py-2.5 rounded-md border border-red-300 text-red-600 text-sm hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >

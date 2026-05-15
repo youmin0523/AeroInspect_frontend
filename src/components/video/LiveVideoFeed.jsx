@@ -17,6 +17,9 @@ import { useEffect, useRef, useState } from 'react'
 import useDroneStore from '../../store/droneStore.js'
 import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
+import ThermalOverlay from './ThermalOverlay.jsx'
+import DetectionOverlay from './DetectionOverlay.jsx'
+import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -199,6 +202,64 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const noSignalBg = fill
     ? 'bg-[radial-gradient(ellipse_at_center,_rgba(15,23,42,0.9)_0%,_rgba(2,6,23,1)_100%)]'
     : ''
+
+  // ── test_mode 영상 직접재생 분기 ────────────────────
+  // <video> 가 mp4 를 네이티브 디코드. 60fps 가능, Fly 1 vCPU 도 영향 없음.
+  // PAUSE/STOP/RESUME 은 testPlayState 를 보고 video.play()/pause() 로 동기화.
+  const active = useTestActiveMedia()
+  const isDirectVideoMode = (
+    isTestMode && active?.kind === 'video' && active?.filename && cameraMode === 'rgb'
+  )
+  const videoRef = useRef(null)
+  const directVideoUrl = isDirectVideoMode
+    ? `${API_BASE}/api/v1/stream/test/upload/file/${encodeURIComponent(active.filename)}`
+    : null
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !isDirectVideoMode) return
+    if (testPlayState === 'paused') {
+      v.pause()
+    } else if (testPlayState === 'playing') {
+      v.play().catch(() => {})
+    } else if (testPlayState === 'stopped') {
+      v.pause()
+      try { v.currentTime = 0 } catch { /* not seekable yet */ }
+    }
+  }, [testPlayState, isDirectVideoMode, directVideoUrl])
+
+  if (isDirectVideoMode && fill) {
+    return (
+      <div className={containerClass} style={containerStyle}>
+        <video
+          ref={videoRef}
+          key={directVideoUrl}
+          src={directVideoUrl}
+          className={imgClass}
+          autoPlay
+          muted
+          playsInline
+          loop={false}
+          controls={false}
+          onLoadedMetadata={() => {
+            if (isTestMode && cameraMode === 'rgb') {
+              markTestMediaReady()
+            }
+          }}
+        />
+        <DetectionOverlay
+          videoRef={videoRef}
+          frameW={active?.frame_w}
+          frameH={active?.frame_h}
+        />
+        <div className="absolute bottom-3 left-3 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900/80 border border-cyan-500/40">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+          <span className="text-[10px] font-mono tracking-wider text-cyan-200">
+            DIRECT · {Math.round(active?.fps || 0)}fps · {active?.filename}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={containerClass} style={containerStyle}>
@@ -410,6 +471,9 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           </button>
         </div>
       )}
+
+      {/* 열화상 / 블렌드 모드일 때만 온도 HUD 표시 */}
+      <ThermalOverlay visible={cameraMode === 'thermal' || cameraMode === 'blend'} />
 
       {/* 로딩 오버레이 */}
       {!isLoaded && !hasError && (
