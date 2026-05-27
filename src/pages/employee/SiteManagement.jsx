@@ -17,6 +17,7 @@ import {
 import useSitesStore from '../../store/sitesStore.js'
 import { STATUS_MAP, CLIENT_TYPE_MAP } from '../../constants/siteTypes.js'
 import SiteFormModal from '../../components/site/SiteFormModal.jsx'
+import RoleGuard from '../../components/common/RoleGuard.jsx'
 
 /* ── 유틸 ────────────────────────────────────────────── */
 
@@ -139,12 +140,15 @@ export default function SiteManagement() {
               <span className="text-lg font-bold text-slate-800">현장 관리</span>
             </div>
           </div>
-          <button
-            onClick={() => { setEditingSite(null); setModalOpen(true) }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition shadow-sm shadow-indigo-200"
-          >
-            <Plus size={16} /> 현장 등록
-          </button>
+          {/* 등록은 owner/admin 만. member 는 view-only */}
+          <RoleGuard allowed={['owner', 'admin']}>
+            <button
+              onClick={() => { setEditingSite(null); setModalOpen(true) }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition shadow-sm shadow-indigo-200"
+            >
+              <Plus size={16} /> 현장 등록
+            </button>
+          </RoleGuard>
         </div>
       </header>
 
@@ -329,24 +333,29 @@ export default function SiteManagement() {
                             {sc.label}
                           </span>
                         </td>
-                        {/* 액션 */}
+                        {/* 액션 — owner/admin 만, member 는 — 표시 */}
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={(e) => handleEdit(e, site)}
-                              className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
-                              title="편집"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(e, site.id)}
-                              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
-                              title="삭제"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
+                          <RoleGuard
+                            allowed={['owner', 'admin']}
+                            fallback={<span className="text-xs text-gray-300">읽기 전용</span>}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={(e) => handleEdit(e, site)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                title="편집"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                onClick={(e) => handleDelete(e, site.id)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                title="삭제"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </RoleGuard>
                         </td>
                       </tr>
                     )

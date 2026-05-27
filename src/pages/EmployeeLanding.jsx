@@ -370,13 +370,27 @@ function EmployeeHeader({ operatorName }) {
                   </button>
 
                   {isAdmin && (
-                    <button
-                      onClick={() => { setProfileOpen(false); navigate('/employee/admin/members') }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition"
-                    >
-                      <Users size={16} className="text-gray-400" />
-                      멤버 관리
-                    </button>
+                    <>
+                      <div className="px-4 pt-2 pb-1">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                          <Shield size={10} /> 관리자 영역
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => { setProfileOpen(false); navigate('/employee/admin/members') }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 flex items-center gap-3 transition"
+                      >
+                        <Users size={16} className="text-amber-500" />
+                        조직원 관리
+                      </button>
+                      <button
+                        onClick={() => { setProfileOpen(false); navigate('/employee/admin/gpu') }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 flex items-center gap-3 transition"
+                      >
+                        <Cpu size={16} className="text-amber-500" />
+                        GPU 모니터
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -820,11 +834,11 @@ function QuickActionsSection() {
     isTestMode: true,
   }
 
+  // GPU 제어는 owner/admin/superadmin 에게만 노출 (비용 직결, 라우트도 adminOnly).
   const actions = [
     ...QUICK_ACTIONS.filter((a) => FIELD_INSPECTION_ENABLED || a.key !== 'start-inspection'),
     testModeCard,
-    gpuCard,
-    ...(isAdmin ? [adminCard] : []),
+    ...(isAdmin ? [adminCard, gpuCard] : []),
   ]
 
   const handleTestModeClick = () => {

@@ -13,6 +13,7 @@ import { ArrowLeft, CheckCircle2, Clock, Download, Save, Building } from 'lucide
 import ReportEditor from '../../components/report/ReportEditor.jsx'
 import useReportsStore from '../../store/reportsStore.js'
 import { downloadReport } from '../../api/reportsApi.js'
+import RoleGuard from '../../components/common/RoleGuard.jsx'
 
 export default function ReportDetail() {
   const { id } = useParams()
@@ -113,17 +114,31 @@ export default function ReportDetail() {
               </button>
             )}
             {report && (
-              <button
-                type="button"
-                onClick={handleTogglePublish}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold border transition ${
-                  report.status === 'published'
-                    ? 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
-                    : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
-                }`}
+              // 발행/초안 토글은 owner/admin 만. member 는 현재 상태만 표시.
+              <RoleGuard
+                allowed={['owner', 'admin']}
+                fallback={
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold border ${
+                    report.status === 'published'
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : 'bg-gray-50 text-gray-600 border-gray-200'
+                  }`}>
+                    {report.status === 'published' ? '발행됨' : '초안'}
+                  </span>
+                }
               >
-                {report.status === 'published' ? '초안으로' : '발행'}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleTogglePublish}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold border transition ${
+                    report.status === 'published'
+                      ? 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                      : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {report.status === 'published' ? '초안으로' : '발행'}
+                </button>
+              </RoleGuard>
             )}
           </div>
         </div>

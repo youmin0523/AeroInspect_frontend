@@ -13,6 +13,7 @@ import {
   Trash2, CheckCircle2, Clock, AlertTriangle,
 } from 'lucide-react'
 import useReportsStore from '../../store/reportsStore.js'
+import RoleGuard from '../../components/common/RoleGuard.jsx'
 
 function formatDate(ms) {
   if (!ms) return '—'
@@ -178,15 +179,18 @@ export default function ReportsList() {
                             >
                               열기 <ArrowRight size={12} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(r.id)}
-                              disabled={busyId === r.id}
-                              className="p-1.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-700 transition disabled:opacity-50"
-                              title="리포트 삭제"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            {/* 삭제 — owner/admin 만 */}
+                            <RoleGuard allowed={['owner', 'admin']}>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(r.id)}
+                                disabled={busyId === r.id}
+                                className="p-1.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-700 transition disabled:opacity-50"
+                                title="리포트 삭제"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </RoleGuard>
                           </div>
                         </td>
                       </tr>

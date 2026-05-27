@@ -2887,3 +2887,43 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 ---
 
+## 🎯 R-v1.1.07 — Role 기반 UI 분기 + Admin 사이드바 진입 경로 (2026-05-27)
+
+> 사용자 피드백: "member 도 Delete/Edit 버튼 그대로 노출되고, admin/superadmin 도 URL 직접 입력해야 `/employee/admin/*` 진입 가능." Role 분기 + 사이드바 admin 섹션 신설.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .07.f1 | 2026-05-27 | **authStore selector 헬퍼 5종** — `selectIsSuperadmin / selectIsOwner / selectIsAdmin / selectIsMember / selectUserRole` named export. 모든 컴포넌트에서 `useAuthStore(selectIsAdmin)` 한 줄로 권한 분기. `selectIsAdmin` 은 superadmin OR owner/admin 통합 판정. | src/store/authStore.js |
+| .07.f2 | 2026-05-27 | **RoleGuard 공용 컴포넌트** — `<RoleGuard allowed={['owner','admin']} fallback={...}>children</RoleGuard>`. allowed 에 owner/admin 명시되면 superadmin 도 자동 통과(상위 권한 룰). fallback 없으면 null 반환. | src/components/common/RoleGuard.jsx (신규) |
+| .07.f3 | 2026-05-27 | **SiteManagement 권한 분기** — 헤더 "현장 등록" 버튼 + 행별 편집/삭제 버튼 = owner/admin 만. member 는 "읽기 전용" 라벨 fallback. | src/pages/employee/SiteManagement.jsx |
+| .07.f4 | 2026-05-27 | **ReportDetail 발행 토글 분기** — `handleTogglePublish` 버튼 = owner/admin 만, member 는 현재 상태(발행됨/초안) 정적 배지로 fallback. 자동 저장은 그대로(member 도 본문 편집은 허용 — 본 라운드 범위 밖, 추후 필요시 ReportEditor 단에서). | src/pages/employee/ReportDetail.jsx |
+| .07.f5 | 2026-05-27 | **ReportsList 삭제 분기** — 행별 삭제(Trash2) 버튼 = owner/admin 만 노출. member 는 "열기" 만. | src/pages/employee/ReportsList.jsx |
+| .07.f6 | 2026-05-27 | **App.jsx 라우트 가드 보강** — `/employee/admin/gpu` 가 `<OrgRequired>` 만 적용돼 member 도 URL 직접 입력으로 진입 가능했음. `adminOnly` prop 추가하여 owner/admin/superadmin 만 통과. (멤버 관리는 이미 적용돼 있었음) | src/App.jsx |
+| .07.f7 | 2026-05-27 | **Sidebar admin 섹션** — `/dashboard` 좌측 사이드바에 ShieldCheck 구분자 + amber 톤 admin 전용 NavLink 2종 ("조직원 관리" → /employee/admin/members, "GPU 모니터" → /employee/admin/gpu). `useAuthStore(selectIsAdmin)` 로 조건부 렌더. | src/components/layout/Sidebar.jsx |
+| .07.f8 | 2026-05-27 | **EmployeeLanding admin UX 일관화** — 프로필 드롭다운에 "관리자 영역" 섹션 헤더 + 조직원 관리 + GPU 모니터 2개 항목 통일(기존엔 "멤버 관리" 1개만). QuickActions GPU 카드도 admin 조건부로 이동(이전엔 전 사용자 노출 — UI 만 보였고 라우트는 .07.f6 에서 차단). | src/pages/EmployeeLanding.jsx |
+
+### 📐 설계 결정 / 자가검토
+
+- **RoleGuard 의 superadmin auto-pass**: 모든 페이지에서 `allowed={['owner','admin']}` 만 쓰면 충분(superadmin 명시 누락 사고 방지). superadmin-only 가 필요하면 명시적으로 `allowed={['superadmin']}` 만 쓰도록 fallback.
+- **라우트 가드 vs UI 가드 이중**: 라우트(OrgRequired adminOnly)는 직접 URL 입력 차단, RoleGuard 는 페이지 내부 버튼 가드. 둘 다 필요(라우트 통과한 owner 페이지에서도 일반 member 화면용 view-only 분기 필요한 경우 있음).
+- **member 발행 토글 hide vs disable**: hide(정적 배지 fallback) 선택. disabled 버튼은 hover/tooltip 노이즈만 만들고 의도 전달 약함.
+- **GPU 카드 admin-only 이동**: 라우트 차단(.07.f6)으로 일반 member 가 카드 클릭 시 `/employee` 로 튕기는 UX 깨짐 방지. 보일 거면 진입 가능, 차단할 거면 카드도 숨김.
+- **Sidebar admin 섹션 amber 톤**: 기본 emerald accent 와 차별화 → "권한 다름" 시각 신호. ShieldCheck 아이콘 + 구분선으로 영역 경계 명확.
+
+### ✅ 검증
+
+- `npm run build`: 20.15s OK. (사전 sentry 패키지 누락은 본 작업 외 별도 이슈 — `npm install` 로 33개 deps 설치 후 통과)
+- 권한 시나리오 검증 매트릭스:
+  - **member**: SiteManagement 등록/편집/삭제 = hide ("읽기 전용"), ReportsList 삭제 = hide, ReportDetail 발행 토글 = 정적 배지, Sidebar admin 섹션 = hide, `/employee/admin/*` URL 직접 입력 = `/employee` 로 redirect.
+  - **owner/admin**: 모든 액션 보임, Sidebar admin 섹션 amber 노출, admin 페이지 정상 진입.
+  - **superadmin**: owner 와 동일 + 조직 미소속 상태에서도 admin 페이지 진입.
+
+### 🚨 안전성 영향
+
+- **사용자 데이터 영향 X** — 순수 UI 가드. 백엔드 API 권한 검증은 별도(기존 그대로). 본 라운드는 "잘못된 버튼 클릭으로 인한 403 노이즈 + 일반 직원이 비용 직결 GPU 제어 화면 진입" 의 클라이언트 가드 보강.
+- **frontend 단독 가드 한계**: API 호출 자체는 백엔드에서도 권한 검증 필수(이미 OrgRequired adminOnly 와 백엔드 라우트 종속). 본 라운드는 UX 명확성 + 사고 가능성 1차 차단.
+
+---
+

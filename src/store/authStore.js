@@ -53,6 +53,43 @@ const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null
 const storedToken = getAuthValue('access_token')
 const storedOrgRaw = getAuthValue('current_org')
 
+/* ── Role Selector Helpers ─────────────────────────────────
+ *
+ * 컴포넌트에서 role 분기를 깔끔하게 — useAuthStore(selectIsAdmin) 식으로 사용.
+ * `superadmin` 은 시스템 전체 관리자(전 조직 접근 가능), `owner/admin` 은
+ * 현재 조직(currentOrg) 내 관리자. `member` 는 일반 직원.
+ *
+ * 사용 예:
+ *   const isAdmin = useAuthStore(selectIsAdmin)
+ *   if (isAdmin) <DeleteButton />
+ *
+ *   // 함수형 (props 로 전달용 등):
+ *   const role = useAuthStore(selectUserRole) // 'superadmin' | 'owner' | 'admin' | 'member' | null
+ * ─────────────────────────────────────────────────────────── */
+
+/** 현재 사용자가 슈퍼어드민인지 (전 조직 접근) */
+export const selectIsSuperadmin = (state) => !!state.user?.is_superadmin
+
+/** 현재 사용자가 조직 owner 인지 */
+export const selectIsOwner = (state) => state.currentOrg?.role === 'owner'
+
+/** 현재 사용자가 admin 또는 owner 인지 (조직 관리자) */
+export const selectIsAdmin = (state) =>
+  !!state.user?.is_superadmin || ['owner', 'admin'].includes(state.currentOrg?.role)
+
+/** 현재 사용자가 member(일반 직원) 인지 */
+export const selectIsMember = (state) =>
+  !state.user?.is_superadmin && state.currentOrg?.role === 'member'
+
+/**
+ * 현재 사용자의 단일 role 라벨 반환.
+ * superadmin > owner > admin > member > null (조직 미소속 비-superadmin)
+ */
+export const selectUserRole = (state) => {
+  if (state.user?.is_superadmin) return 'superadmin'
+  return state.currentOrg?.role || null
+}
+
 const useAuthStore = create((set, get) => ({
   // ── 상태 ──────────────────────────────────
   token: storedToken || null,

@@ -17,8 +17,12 @@ import {
   Plane,
   Settings,
   LogOut,
+  ShieldCheck,
+  Users,
+  Cpu,
 } from 'lucide-react'
 import useChatStore from '../../store/chatStore.js'
+import useAuthStore, { selectIsAdmin } from '../../store/authStore.js'
 import logoWhite from '../../assets/logo/logo_white.png'
 
 // 내비 항목. disabled: true → "준비 중" placeholder (클릭 시 무동작, 툴팁만 표시).
@@ -32,8 +36,15 @@ const NAV_ITEMS = [
   { key: 'settings',  to: '#',                 icon: Settings,        label: '설정',       disabled: true },
 ]
 
+// admin 전용 섹션 — owner/admin/superadmin 만 표시. (라우트 가드: OrgRequired adminOnly)
+const ADMIN_NAV_ITEMS = [
+  { key: 'admin-members', to: '/employee/admin/members', icon: Users, label: '조직원 관리' },
+  { key: 'admin-gpu',     to: '/employee/admin/gpu',     icon: Cpu,   label: 'GPU 모니터' },
+]
+
 export default function Sidebar() {
   const chatUnread = useChatStore((s) => s.unreadTotal)
+  const isAdmin = useAuthStore(selectIsAdmin)
 
   return (
     <aside className="flex flex-col w-14 bg-dashboard-surface border-r border-neutral-700 flex-shrink-0">
@@ -85,6 +96,38 @@ export default function Sidebar() {
             </NavLink>
           )
         })}
+
+        {/* Admin 전용 섹션 — owner/admin/superadmin 만 표시 */}
+        {isAdmin && (
+          <>
+            <div
+              className="my-2 flex flex-col items-center gap-0.5 text-amber-400/80"
+              title="관리자 전용"
+            >
+              <ShieldCheck size={12} />
+              <span className="w-6 h-px bg-amber-400/30" aria-hidden />
+            </div>
+            {ADMIN_NAV_ITEMS.map((item) => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.key}
+                  to={item.to}
+                  title={`${item.label} — 관리자 전용`}
+                  className={({ isActive }) =>
+                    `relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                      isActive
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-300'
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                </NavLink>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       {/* 하단: 로그아웃 (TEMP — 세션 연동 전) */}
