@@ -2967,3 +2967,43 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 ---
 
+## 🎯 R-v1.1.09 — 하자 인라인 검수 UI + 실시간 검수 broadcast (2026-05-27)
+
+> backend R-v1.1.x 신규 `PATCH /api/v1/defects/{id}/review` + `GET /api/v1/defects/{id}/audit-trail` + WS `defect.reviewed` 와 짝. 현장 검수자가 카드 1탭으로 오탐을 즉시 거부할 수 있어야 입주자 신뢰가 유지된다 ([feedback_strict_all_defects]).
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .09.f1 | 2026-05-27 | **defectsApi 전용 axios 인스턴스 + 신규 함수 2종** — Bearer + X-Organization-Id 자동 헤더 인터셉터. `reviewDefect(id, {review_status, review_note})` (rejected/flagged_false_positive 시 review_note 가드 — 백엔드 422 회피), `getDefectAuditTrail(id, {limit, offset})`. 기존 fetchDefects/createDefect 등도 같은 인스턴스 경유로 일원화. | src/api/defectsApi.js |
+| .09.f2 | 2026-05-27 | **defectStore 검수 머지 + 자동 동기 보호** — `applyReviewedDefect(reviewed)` 액션(id 매칭 후 review_status/reviewed_at/reviewed_by_user_id/review_note + verified 동기화, idempotent), `lastManualSelectAt` 필드(수동 selectDefect 시 ms 갱신), `addDefect` 자동 selectedDefect 갱신을 "수동 선택 30초 TTL" 로 보호, `getReviewStatusCounts()` selector (pending/approved/rejected/flagged_false_positive). | src/store/defectStore.js |
+| .09.f3 | 2026-05-27 | **useWebSocket — defect.reviewed 핸들러** — `useDefectStore.getState().applyReviewedDefect(data)` 단일 호출. REST PATCH 응답과 WS broadcast 양쪽 어디서 와도 같은 함수로 처리(중복 idempotent). useEffect cleanup 이 기존 ws.close 로 보장되므로 핸들러 중복 등록 사고 없음. | src/hooks/useWebSocket.js |
+| .09.f4 | 2026-05-27 | **DefectReviewActions.jsx (신규)** — pending 카드: [확인(emerald) / 반려(rose) / 오탐(amber)] 3버튼(모바일 min-h 36px). 반려·오탐: textarea 모달(autofocus, ESC 닫기, NOTE_MAX=2000, 사유 미입력 시 인라인 가드). 검수 완료 카드: 검수자명 + 검수 시각 + "재검수"(pending 회귀). 인라인 빨간 에러 배너(3초 자동 소실). 카드 클릭 전파 차단(stopPropagation). | src/components/defects/DefectReviewActions.jsx (신규) |
+| .09.f5 | 2026-05-27 | **DefectCard — 검수 통합 + 모델·GPS 뱃지** — review_status border(approved=emerald/40, rejected=rose/40, flagged=amber/40, fallback=기존 severity), `detection_model_id` 칩(M1_YOLO/M2_THERMAL/M3_CRACK/M4_CONTEXT/M5_FURNITURE 라벨 매핑 + tooltip), GPS 칩(lat/lon abs 4자리 + N/S/E/W). 카드 자체 `<button>` → `role="button" tabIndex={0}` div 로 전환(액션 모달의 nested button 회피 + Enter/Space 키 트리거 유지). DefectReviewActions 마운트. | src/components/defects/DefectCard.jsx |
+| .09.f6 | 2026-05-27 | **ReportEditor toggleVerified — verified ↔ review_status='approved' 매핑 통일** — `toggleVerified(id)` 가 `verified` 와 `review_status` 를 동시 patch. 거부/오탐은 ReportEditor 에 노출 안 함(편집 ≠ 검수). 실시간 검수 PATCH 호출은 DefectReviewActions 가 담당, ReportEditor 의 verified 는 리포트 편집 로컬 state 전용으로 역할 분리. | src/components/report/ReportEditor.jsx |
+
+### 📐 설계 결정 / 자가검토
+
+- **verified ↔ approved 통일 vs 분리**: 사용자 권장사항대로 통일 선택. 이유 — (1) 같은 의미(이 하자는 보고에 포함할 신뢰 가능 검출이다)를 두 컬럼으로 둘 시 PDF/Excel/AI 내레이션 downstream 에서 어느 쪽을 기준 삼을지 매번 결정 비용 발생, (2) rejected/flagged 는 "보고에서 제외" 의미라 ReportEditor 에 굳이 표시할 필요 없음(이미 verified=false 와 동일 효과). ReportEditor 의 verified 는 "이 리포트 편집 세션의 로컬 결정", DefectReviewActions 의 review_status 는 "전체 시스템(DB+WS broadcast)에 영향 주는 결정" 으로 책임을 분리.
+- **30초 TTL 자동 영상↔하자 동기**: 단순 "최근 항목 자동 select" 는 검수자가 사유 textarea 입력 중 새 detection 도착 시 selectedDefect 가 바뀌어 흐름 차단(모달 외부 클릭과 같은 사고). `lastManualSelectAt` ms 저장 + 30s 임계로 보호. 30s 는 사용자가 짧은 메모(2~3문장)를 입력하는 평균 시간 + 여유.
+- **토스트 라이브러리 미도입**: react-hot-toast/sonner 추가 dep 도입 vs 인라인 에러 배너 → 후자 선택. (a) bundle size 0 증가 (b) 컴포넌트 로컬 state 라 z-index/portal 충돌 없음 (c) 3초 자동 소실로 사용자 흐름 비차단. 추후 전역 알림 필요 시 notificationStore (이미 존재) 로 통합 검토.
+- **카드를 button → role=button div 로 전환**: HTML 사양상 `<button>` 안에 또 다른 `<button>` 을 못 두는데, DefectReviewActions 모달의 취소/저장 버튼이 nested 가 됨. role=button 으로 같은 의미 + 키보드 접근성(Enter/Space onKeyDown) 보존 + focus ring 명시 유지.
+- **WS 핸들러 중복 등록 0**: useWebSocket 은 connect/disconnect 가 useEffect cleanup 으로 자체 보장. 새 핸들러는 모듈 레벨 `messageHandlers` map 에 추가만 했으므로 mount 마다 등록되는 구조 자체가 아님.
+
+### ✅ 검증
+
+- `cd c:/Users/Codelab/Desktop/PROJECT/AeroInspect_frontend && npm run build` → 17.91s OK.
+- 모바일 viewport (375×667) 액션 버튼 min-h 36px 충족, 모달 max-w-md + p-4 로 좁은 화면도 안전.
+- defect.reviewed WS 머지 idempotency: 같은 reviewed_at 으로 2회 호출 시 결과 동일(객체 식별자만 새로 생성).
+- review_note 가드: rejected/flagged 호출 시 빈 사유 → 백엔드 가지 않고 인라인 가드("사유를 입력해 주세요 (필수).") 표시.
+
+### 🚨 안전성 / 운영 영향
+
+- API 호출 실패 시 사용자 명확한 피드백("검수 저장에 실패했어요. 잠시 후 다시 시도해 주세요.") + 자동 소실. 추후 backend 5xx 분기/네트워크 단절 별 메시지 차별화 가능.
+- 인증 헤더 인터셉터 일원화로 401 자동 갱신(authApi 의 response interceptor) 와 자연 연동.
+- 인라인 review_status border 가 severity border 보다 우선 — 검수 진행 상태가 시각 1순위(검수자가 "이 카드 처리됐는지" 를 0.1초 안에 판별).
+
+### ➡️ 후속 (R-v1.1.10 후보)
+
+- 감사 이력 패널: `getDefectAuditTrail` 은 API 만 추가됨. UI 토글은 우선순위 낮아 본 라운드 skip (작업 명세에 "시간 부족 시 skip" 명시). DefectPanel 우측 expand 또는 DefectCard 토글로 추가 검토.
+- 평면도 컴포넌트 GPS 핀: 본 라운드는 카드 표시까지만. map3d/DefectMarker 등에 gps_lat/lon 좌표 변환 + 핀 마커는 별도 작업.

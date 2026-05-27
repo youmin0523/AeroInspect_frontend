@@ -54,6 +54,13 @@ const messageHandlers = {
     if (!Array.isArray(data?.items)) return
     for (const item of data.items) pushDefect(item)
   },
+  // //* [Modified Code 2026-05-27] R-v1.1.x 인라인 검수 — 백엔드 PATCH /defects/{id}/review
+  //   응답이 "defects" 채널로 broadcast 됨. 다른 검수자/세션의 결정도 즉시 반영.
+  //   applyReviewedDefect 는 id 매칭 후 review_status/reviewed_* 만 patch (idempotent).
+  'defect.reviewed': (data) => {
+    if (!data?.id) return
+    useDefectStore.getState().applyReviewedDefect(data)
+  },
   'telemetry.update': (data) => {
     useDroneStore.getState().updateTelemetry(data)
   },
