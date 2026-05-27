@@ -2851,3 +2851,39 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### 🚨 안전성 영향
 
 - 사용자 데이터 누락 X — 이 fix 는 순수 클라이언트 렌더 안정화이고, 백엔드 응답/저장 흐름과 무관.
+
+---
+
+## 🎯 R-v1.1.06 — ReportEditor 모바일 카드 뷰 + 3D Canvas 터치 제스처 (2026-05-27)
+
+> 사용자 피드백: "ReportEditor 19컬럼 와이드 테이블이 모바일 가로 320px 에서 사용 불가." 데스크탑 회귀 0 으로 반응형 분기, 같은 React state 양방향 동기화 유지.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .06.f1 | 2026-05-27 | **DefectEditCard 신규** — 모바일(< md) 전용 카드 뷰. 헤더(severity 배지+category_code+defect_type+area chip), 본문 dl 그리드(신뢰도·열영상최고·장소·공종·심각도·조치메모), 푸터(검증 토글·삭제). 모든 터치 컨트롤 min-h 44px+. `onChange/onRemove/onToggleVerified` 계약은 DefectEditRow 와 동일 — ReportEditor 의 단일 `defects` source 공유. | src/components/report/DefectEditCard.jsx (+184) |
+| .06.f2 | 2026-05-27 | **ReportEditor 반응형 분기** — 기존 테이블을 `hidden md:block`, 신규 카드 리스트를 `md:hidden` 으로 감싸 CSS 단으로만 토글. md(≥768px) 데스크탑·태블릿 가로 = 테이블 그대로, < md 모바일 = 카드. 데이터/sorting/filtering/verified 토글 로직 변경 0. | src/components/report/ReportEditor.jsx (+~32, -~24) |
+| .06.f3 | 2026-05-27 | **3D Canvas 터치 제스처 활성화** — BuildingScene + PreWork 의 `<OrbitControls>` 에 `touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}` + `enableDamping`(0.08) 추가. 모바일에서 1손가락 회전, 2손가락 핀치 줌+팬 가능. | src/components/map3d/BuildingScene.jsx, src/pages/employee/PreWork.jsx |
+
+### 📐 설계 결정 / 자가검토
+
+- **반응형 분기점 md(768px)**: 사무실 PC·태블릿 가로 = 테이블, 태블릿 세로·모바일 = 카드. 19컬럼 와이드 테이블은 768px 미만에서 가로 스크롤 + 작은 폰트로 사실상 사용 불가였음.
+- **이중 마운트 vs 단일 마운트 토글**: Tailwind `hidden md:*` 패턴은 두 뷰가 동시에 DOM 에 있지만 한쪽은 `display:none`. props 가 같은 React state 를 가리키므로 양방향 동기화 자동(편집 핸들러도 단일). DOM 노드 2배는 정렬·필터 결과가 동일해 페인트 비용 미미.
+- **터치 제스처 표준**: `THREE.TOUCH.ROTATE`/`DOLLY_PAN` 은 three.js 기본 상수, drei OrbitControls 가 그대로 forward. damping 추가로 손가락 떼고 잔여 관성 자연스럽게.
+- **데이터 스키마 변경 X**: API 응답·store 형태 그대로. CSS 와 컴포넌트 분기만.
+
+### ✅ 검증
+
+- `npm run build`: OK (22.64s, 에러 0). bundle size 변화 미미(카드 컴포넌트 +~2KB).
+- **데스크탑 viewport 시뮬(1280px)**: 기존 테이블 노출(md:block), 카드는 hidden.
+- **모바일 viewport 시뮬(375px)**: 카드만 노출(md:hidden), 테이블 hidden.
+- **Chrome DevTools 시뮬 가이드**: F12 → Toggle device toolbar(Ctrl+Shift+M) → Responsive → 375×667(iPhone SE) 로 카드 뷰 확인, 1280×800 로 테이블 뷰 확인.
+
+### 🚨 안전성 영향
+
+- 사용자 데이터/스키마 영향 X — 순수 UI 반응형 분기 + 3D 입력 핸들러 확장. 데스크탑 테이블 동작 회귀 0.
+
+
+---
+

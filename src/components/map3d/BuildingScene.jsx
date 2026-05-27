@@ -10,6 +10,7 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import { Suspense } from 'react'
+import * as THREE from 'three'
 import BuildingMesh from './BuildingMesh.jsx'
 import DefectMarker from './DefectMarker.jsx'
 import DroneMarker from './DroneMarker.jsx'
@@ -39,13 +40,17 @@ export default function BuildingScene() {
     <div className="relative w-full h-full overflow-hidden">
       <Canvas shadows>
         <PerspectiveCamera makeDefault position={[8, 6, 8]} fov={50} />
+        {/* //* [Modified Code v3] (2026-05-27) 모바일 터치 제스처 — 1손가락 회전 / 2손가락 핀치줌+팬 + damping */}
         <OrbitControls
           enablePan
           enableZoom
           enableRotate
+          enableDamping
+          dampingFactor={0.08}
           maxPolarAngle={Math.PI / 2}
           minDistance={2}
           maxDistance={30}
+          touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
         />
 
         {/* 조명 */}

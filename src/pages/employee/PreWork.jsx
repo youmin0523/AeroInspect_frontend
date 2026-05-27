@@ -21,6 +21,7 @@ import { Suspense, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
+import * as THREE from 'three'
 import {
   ArrowLeft,
   Building,
@@ -474,13 +475,17 @@ export default function PreWork() {
               <div className="h-72 md:h-80">
                 <Canvas shadows>
                   <PerspectiveCamera makeDefault position={[8, 6, 8]} fov={50} />
+                  {/* //* [Modified Code v3] (2026-05-27) 모바일 터치 제스처 — 1손가락 회전 / 2손가락 핀치줌+팬 + damping */}
                   <OrbitControls
                     enablePan
                     enableZoom
                     enableRotate
+                    enableDamping
+                    dampingFactor={0.08}
                     maxPolarAngle={Math.PI / 2}
                     minDistance={2}
                     maxDistance={30}
+                    touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
                   />
                   <ambientLight intensity={0.4} />
                   <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow />
