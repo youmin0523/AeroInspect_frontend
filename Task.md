@@ -9,6 +9,15 @@
 
 ## 작업 목록 — @youminsu0523 (branch: MS)
 
+### R-v1.1.09 — 하자 인라인 검수 UI (2026-05-27)
+- [x] **(2026-05-27)** backend R-v1.1.x 인라인 검수 + 감사 이력 엔드포인트 프론트 연동
+  - `src/api/defectsApi.js` 전용 axios 인스턴스(Bearer + X-Organization-Id 자동) 도입 + `reviewDefect(id, {review_status, review_note})` / `getDefectAuditTrail(id, {limit, offset})` 신규
+  - `src/store/defectStore.js` `applyReviewedDefect` 액션, `lastManualSelectAt` (수동 선택 30초 TTL), `getReviewStatusCounts` selector 추가. `addDefect` 가 TTL 보호 하에서 자동 selectDefect (영상↔하자 동기)
+  - `src/hooks/useWebSocket.js` `defect.reviewed` 핸들러 추가 — store idempotent 머지
+  - 신규 `src/components/defects/DefectReviewActions.jsx` — 확인/반려/오탐 1탭 액션 + 사유 입력 모달(2000자, ESC 닫기, autofocus) + 인라인 에러 배너 + 재검수 토글
+  - `src/components/defects/DefectCard.jsx` review_status border, detection_model_id 뱃지, GPS 뱃지, 액션 영역 통합 (button → role=button div 로 변경하여 nested button 회피)
+  - `src/components/report/ReportEditor.jsx` `toggleVerified` 가 `review_status` 도 동시 patch — verified↔approved 의미 통일
+
 ### 3D 리포트 샘플 페이지 (260427)
 - [x] v4.1_260427 — 3D 리포트 샘플 페이지 **SampleReport.jsx** (~1200줄, 신규)
   - `HeroSection.jsx`「3D 리포트 샘플 보기」버튼 → `/sample-report` 네비게이션 연결
@@ -214,6 +223,7 @@ frontend/src/
 | `/employee/analytics` | Analytics | OrgRequired | 분석 |
 | `/employee/chat` | Chat | OrgRequired | 메신저 |
 | `/employee/admin/members` | AdminMembers | OrgRequired adminOnly | 관리자 전용 |
+| `/employee/admin/gpu` | AdminGpu | OrgRequired adminOnly | 관리자 전용 (R-v1.1.07 가드 보강) |
 | `/session/setup` | SessionSetup | SessionLayout | 세션 시작 |
 | `/session/level` | SessionLevel | SessionLayout | 레벨 선택 |
 | `/session/modeling` | SessionModeling | SessionLayout | 모델링 |
@@ -234,6 +244,36 @@ frontend/src/
 ---
 
 ## Revision History
+
+### v6.4_260527 (작성자: @youminsu0523 / branch: MS)
+- **(frontend R-v1.1.08) Sentry 에러 모니터링 통합** — 브라우저 미처리 예외/리액트 트리 에러 자동 보고 + 사용자 친화 fallback UI (검정화면 방지).
+  - `package.json`: `@sentry/react@^8.0.0` (dep), `@sentry/vite-plugin@^2.0.0` (devDep) 추가.
+  - `src/lib/sentry.js` (신규): `initSentry()` — `Sentry.init` (BrowserTracing + Replay), VITE_SENTRY_DSN 미설정 시 no-op. `beforeSend` 훅에서 민감 키(password/token/secret/...) 재귀 redact. Replay 는 텍스트/입력/미디어 전체 마스킹 (카메라/드론 스트림 노출 방지). `sendDefaultPii=false`. 알려진 ResizeObserver 노이즈 ignoreErrors.
+  - `src/components/common/SentryErrorBoundary.jsx` (신규): `Sentry.ErrorBoundary` 래퍼 + 사용자 친화 fallback ("예상치 못한 오류가 발생했습니다 / 다시 시도 / 처음 화면으로"). DSN 미설정이어도 fallback UI 는 그대로 동작 (검정화면 회귀 방지 — R-v1.1.05 정책 연장).
+  - `src/main.jsx`: `ReactDOM.createRoot` 이전 `initSentry()` 호출 (렌더 중 에러도 캡처).
+  - `src/App.jsx`: 최상위 `<SentryErrorBoundary>` 로 `<BrowserRouter>` 전체 래핑.
+  - `vite.config.js`: `loadEnv` + 조건부 `@sentry/vite-plugin` 동적 import. `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` 셋 다 있을 때만 활성 → sourcemap 업로드. plugin 미설치 환경 try/catch 보호.
+  - `.env.example`: VITE_SENTRY_DSN / ENVIRONMENT / TRACES_SAMPLE_RATE / REPLAYS_SESSION_RATE / REPLAYS_ERROR_RATE + 빌드 전용 SENTRY_AUTH_TOKEN/ORG/PROJECT 주석 placeholder.
+  - `README.md`: "운영 에러 모니터링 (Sentry)" 섹션 — Vercel envs 등록 + 선택적 sourcemap 업로드 절차.
+  - 검증: `npm run build` 15.77s OK (DSN 없는 상태에서 init no-op 확인).
+  - 사용자 직접 작업: Sentry 프로젝트(React) 생성 → DSN 발급 → Vercel Environment Variables 등록.
+
+### v6.3_260527 (작성자: @youminsu0523 / branch: MS)
+- **(frontend R-v1.1.07) Role 기반 UI 분기 + Admin 사이드바 진입 경로** —
+  - `authStore` selector 5종 추가: `selectIsSuperadmin / selectIsOwner / selectIsAdmin / selectIsMember / selectUserRole` (named export). superadmin OR owner/admin 통합 판정용 `selectIsAdmin` 권장.
+  - 신규 `src/components/common/RoleGuard.jsx` — `<RoleGuard allowed={['owner','admin']} fallback={...}>children</RoleGuard>`. superadmin auto-pass.
+  - `SiteManagement` 등록·편집·삭제 버튼 = owner/admin 만(member fallback "읽기 전용"). `ReportDetail` 발행 토글 = owner/admin 만(member 정적 배지). `ReportsList` 삭제 버튼 = owner/admin 만.
+  - `App.jsx` `/employee/admin/gpu` 라우트 `adminOnly` 추가 — member URL 직접 입력 차단(비용 직결).
+  - `Sidebar` 에 admin 전용 섹션(amber 톤 + ShieldCheck 구분자) — "조직원 관리"/"GPU 모니터" NavLink. `useAuthStore(selectIsAdmin)` 조건부.
+  - `EmployeeLanding` 프로필 드롭다운에 "관리자 영역" 섹션 헤더 + 조직원 관리/GPU 모니터 2종 통일. QuickActions GPU 카드도 admin 조건부로 이동.
+  - `npm run build` 20.15s OK.
+
+### v6.2_260527 (작성자: @youminsu0523 / branch: MS)
+- **(frontend R-v1.1.06) ReportEditor 모바일 카드 뷰 + 3D Canvas 터치 제스처** —
+  - 신규 `src/components/report/DefectEditCard.jsx` — 모바일(< md) 전용 카드. 헤더(severity 배지+code+type+area chip), 본문 dl 그리드(신뢰도·열영상최고·장소·공종·심각도·조치메모), 푸터(검증·삭제, 모든 컨트롤 min-h 44px+). DefectEditRow 와 동일한 onChange/onRemove/onToggleVerified 계약.
+  - `ReportEditor.jsx` 반응형 분기 — 기존 테이블 `hidden md:block`, 신규 카드 리스트 `md:hidden`. 단일 React state(`defects`) 공유로 양방향 동기화 자동.
+  - `BuildingScene.jsx` + `PreWork.jsx` 의 `<OrbitControls>` 에 `touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}` + `enableDamping` 추가 — 모바일 1손가락 회전 / 2손가락 핀치 줌+팬.
+  - 데스크탑 테이블 동작 회귀 0, API 스키마 변경 X, `npm run build` 22.64s OK.
 
 ### v6.1_260515 (작성자: @youminsu0523 / branch: MS)
 - **(frontend R-v1.1.05) 챗봇 기존 대화 클릭 시 검정화면 hotfix** — `ChatbotMessageThread` 의 zustand selector `|| []` 가 매 렌더마다 새 빈 배열 ref 를 반환 → `useSyncExternalStore` getSnapshot 캐싱 위반 → 패널 unmount → `bg-black/30` 오버레이만 보이는 "검정화면" 증상. 모듈 상수 `EMPTY_MESSAGES = []` 도입 + `aiChatStore.selectThread` 가 캐시 미스 시 빈 배열 placeholder 를 먼저 set 하도록 이중 안전망. 새 대화는 회귀 없음(`createThread` 가 이미 빈 배열 캐시).
