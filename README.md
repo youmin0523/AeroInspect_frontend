@@ -214,6 +214,21 @@ frontend/
 | `npm run preview` | 빌드 결과 로컬 서빙 |
 | `npm run lint` | ESLint (react / react-hooks 룰셋) |
 
+### 운영 에러 모니터링 (Sentry)
+
+운영 환경에서만 활성화. 로컬 개발은 `VITE_SENTRY_DSN` 비워두면 자동 no-op (init 도 skip, ErrorBoundary fallback UI 는 그대로 동작).
+
+1. **DSN 발급**: [sentry.io](https://sentry.io) → 새 프로젝트 (Platform: `React`) → Settings → Client Keys (DSN) 복사.
+2. **Vercel 환경변수 등록** (Project Settings → Environment Variables, Production 환경):
+   - `VITE_SENTRY_DSN` = 발급받은 DSN
+   - `VITE_SENTRY_ENVIRONMENT` = `production`
+   - (선택) `VITE_SENTRY_TRACES_SAMPLE_RATE` = `0.1`, `VITE_SENTRY_REPLAYS_ERROR_RATE` = `1.0`
+3. **(선택) sourcemap 업로드** — 운영 stack trace 를 원본 소스로 매핑하려면 build env 에 추가:
+   - `SENTRY_AUTH_TOKEN` (User Auth Token, scopes: `project:releases`, `project:write`)
+   - `SENTRY_ORG`, `SENTRY_PROJECT`
+   - 세 변수 모두 있으면 `vite.config.js` 의 `@sentry/vite-plugin` 이 자동 활성, 빌드 결과 sourcemap 을 Sentry 로 업로드.
+4. **자동 적용 항목**: BrowserTracing 라우트 트랜잭션, Session Replay (에러 발생 시만 자동 첨부, 텍스트/입력/미디어 전체 마스킹), `SentryErrorBoundary` 트리 최상위 fallback (검정화면 방지), 민감 키 `[REDACTED]`, `sendDefaultPii=false`.
+
 ### 동작 확인 체크리스트
 - [ ] `npm run dev` 후 `http://localhost:5173` 진입 시 Landing 렌더
 - [ ] 로그인 후 `/employee` 진입, 조직 미소속이면 `/onboarding`으로 리다이렉트

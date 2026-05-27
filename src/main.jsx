@@ -8,8 +8,13 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { initSentry } from './lib/sentry.js'
 import App from './App.jsx'
 import './index.css'
+
+// Sentry 초기화 — DSN(VITE_SENTRY_DSN) 미설정 시 자동 no-op (로컬 개발 영향 0)
+// createRoot 이전 호출하여 렌더링 도중 발생하는 에러까지 캡처되도록.
+initSentry()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

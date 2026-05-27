@@ -6,11 +6,42 @@
  *       - /api 요청을 백엔드(8000)으로 프록시하여 CORS 우회
  */
 
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  plugins: [react()],
+// Sentry Vite plugin 은 SENTRY_AUTH_TOKEN 이 있을 때만 빌드 결과 sourcemap 을 업로드.
+// 토큰 없으면 plugin 자체를 끼우지 않음 → 일반 개발/CI 환경에서 부담 0.
+export default defineConfig(async ({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const sentryAuthToken = env.SENTRY_AUTH_TOKEN || env.VITE_SENTRY_AUTH_TOKEN
+  const sentryOrg = env.SENTRY_ORG || env.VITE_SENTRY_ORG
+  const sentryProject = env.SENTRY_PROJECT || env.VITE_SENTRY_PROJECT
+
+  const plugins = [react()]
+  if (sentryAuthToken && sentryOrg && sentryProject) {
+    // 동적 import — devDependency 미설치 환경(예: 사용자가 아직 npm install 안 했을 때) 보호
+    try {
+      const { sentryVitePlugin } = await import('@sentry/vite-plugin')
+      plugins.push(
+        sentryVitePlugin({
+          authToken: sentryAuthToken,
+          org: sentryOrg,
+          project: sentryProject,
+          // release 미지정 시 git SHA / package.json version 자동 탐지
+          release: { name: env.SENTRY_RELEASE || undefined },
+          sourcemaps: {
+            assets: './dist/**',
+          },
+          telemetry: false,
+        })
+      )
+    } catch (e) {
+      console.warn('[vite] @sentry/vite-plugin not installed — skipping sourcemap upload')
+    }
+  }
+
+  return ({
+  plugins,
   server: {
     port: 5173,
     proxy: {
@@ -43,4 +74,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  })
 })

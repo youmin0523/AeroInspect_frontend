@@ -2927,3 +2927,43 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 ---
 
+## 🎯 R-v1.1.08 — Sentry 에러 모니터링 통합 (2026-05-27 오후)
+
+> 백엔드 R-v1.1.06 와 짝. 프론트엔드 미처리 예외/리액트 트리 throw 가 운영에서 콘솔에만 남고 사용자는 "검정화면" 만 보던 상태 → 자동 보고 + 사용자 친화 fallback UI 구축.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .08.f1 | 2026-05-27 오후 | **package.json — Sentry 의존성 2종** — `@sentry/react@^8.0.0` (브라우저 SDK + ErrorBoundary), `@sentry/vite-plugin@^2.0.0` (선택적 sourcemap 업로드). node_modules 에 이미 설치되어 있어 `npm install` 추가 실행 없이 build 검증 완료. | package.json |
+| .08.f2 | 2026-05-27 오후 | **src/lib/sentry.js (신규) — initSentry()** — `Sentry.init` 호출. `browserTracingIntegration` (라우트 트랜잭션) + `replayIntegration` (maskAllText/maskAllInputs/blockAllMedia — 카메라/드론 영상 노출 방지). `beforeSend` 훅에서 password/token/secret/authorization/cookie/api_key/refresh_token/access_token 키 재귀 redact. `sendDefaultPii=false`. ResizeObserver 노이즈 ignoreErrors. VITE_SENTRY_DSN 미설정 시 조용히 false 반환 (개발 환경 회귀 0). | src/lib/sentry.js (신규) |
+| .08.f3 | 2026-05-27 오후 | **SentryErrorBoundary.jsx (신규)** — `Sentry.ErrorBoundary` 래퍼. fallback UI = 흰 카드 + "예상치 못한 오류가 발생했습니다 / 이미 운영팀에 자동 보고 / 에러 메시지 pre / 다시 시도(resetError) + 처음 화면으로(window.location='/')". DSN 미설정이어도 fallback 동작 — R-v1.1.05 "검정화면" 사고 회귀 방지 정책 연장(이번엔 throw 가 미들에서 발생해도 fallback 으로 받음). showDialog=false 로 사용자 흐름 방해 최소. | src/components/common/SentryErrorBoundary.jsx (신규) |
+| .08.f4 | 2026-05-27 오후 | **main.jsx — createRoot 이전 initSentry** — `ReactDOM.createRoot` 호출 전에 `initSentry()` 1회. 이유: React 렌더 도중 throw 도 캡처되어야 함. import 순서: lib/sentry → App. | src/main.jsx |
+| .08.f5 | 2026-05-27 오후 | **App.jsx — 최상위 SentryErrorBoundary** — `<BrowserRouter>` 전체를 `<SentryErrorBoundary>` 로 래핑. 모든 라우트/하위 컴포넌트 에러를 단일 boundary 가 receive. (라우트별 부분 fallback 은 향후 R-v1.2 검토.) | src/App.jsx |
+| .08.f6 | 2026-05-27 오후 | **vite.config.js — 조건부 sentry plugin** — `defineConfig(async ({ mode }) => ...)` 비동기로 전환. `loadEnv(mode, cwd, '')` 로 SENTRY_AUTH_TOKEN/ORG/PROJECT 셋 다 있을 때만 `await import('@sentry/vite-plugin')` 동적 로드 → sourcemap 업로드 활성. plugin 미설치 환경은 try/catch + warn 만 출력하고 plugin 없이 빌드 계속. | vite.config.js |
+| .08.f7 | 2026-05-27 오후 | **.env.example 보강** — VITE_SENTRY_DSN, VITE_SENTRY_ENVIRONMENT, TRACES_SAMPLE_RATE(0.1), REPLAYS_SESSION_RATE(0.0), REPLAYS_ERROR_RATE(1.0) + 빌드 전용 SENTRY_AUTH_TOKEN/ORG/PROJECT 주석 placeholder. "운영 환경에서만" 명시. | .env.example |
+| .08.f8 | 2026-05-27 오후 | **README 운영 섹션** — Vercel Environment Variables 등록 절차 + 선택적 sourcemap 업로드 토큰 발급 가이드. DSN 값 자체는 등록 X(사용자 직접). | README.md |
+
+### 📐 설계 결정 / 자가검토
+
+- **검정화면 회귀 정책 연장**: R-v1.1.05 hotfix 의 핵심 학습 — "예외 → unmount → bg-black/30 만 남음" 패턴. ErrorBoundary 가 없으면 동일 패턴 반복 가능. fallback UI 자체는 DSN 없어도 무조건 동작 → 운영 사고 발생 시점에 Sentry 미설정이어도 사용자는 적어도 "다시 시도/처음으로" 버튼을 본다.
+- **Replay 보수 설정**: maskAllText + maskAllInputs + blockAllMedia. 이유: 본 플랫폼은 (1) 사업자 정보·연락처 (2) 드론 카메라 라이브 영상 (3) 입주민 사진 이 흐른다. 한 컷이라도 Sentry 로 흘러가면 신뢰 회복 불가. 마스킹 우선 → 디버깅 가치는 trade-off.
+- **session sample 0.0 / error sample 1.0**: 평소엔 Replay 안 찍고, 에러 발생 직전 30초만 자동 첨부. 무료 plan 500 replays/month 한도 보호.
+- **vite plugin 동적 import**: `require()` 는 ESM 에서 안 됨 → `await import()` + `defineConfig` async. plugin 미설치 환경(현재 사용자가 별도 install 안 한 경우)에서도 build 가 깨지지 않도록 try/catch.
+- **API 응답 스키마 영향 X**: 순수 클라이언트 관측 도구. 백엔드 호환성 0 영향.
+
+### ✅ 검증
+
+- `cd c:/Users/Codelab/Desktop/PROJECT/AeroInspect_frontend && npm run build` → 15.77s OK.
+- DSN 없는 상태로 빌드 → initSentry no-op 확인 (콘솔 출력 없음, ErrorBoundary fallback 만 정상 동작).
+- node_modules 사전 설치 상태(@sentry/react, @sentry/vite-plugin 둘 다 존재) 확인 — 사용자 별도 `npm install` 없이 즉시 사용 가능.
+- 사용자 별도 `npm install` 안내: package.json 에는 추가했으나 lockfile 갱신은 사용자가 `npm install` 1회 실행 필요(자동 실행 X — node 프로세스 일괄 kill 금지 메모리 규칙 + 사용자 환경 침해 방지).
+
+### 🚨 안전성 / 운영 영향
+
+- 민감 데이터 노출 위험 X — Replay 마스킹 + beforeSend redact + sendDefaultPii=false 3중 방어.
+- 사용자 후속 작업: Sentry 프로젝트(Platform: React) 생성 → DSN 발급 → Vercel Project Settings → Environment Variables(Production scope) → `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT=production` 등록 → Redeploy → 임시 throw 컴포넌트로 Issues 탭 도착 확인.
+- (선택) sourcemap 업로드 시: Vercel build env 에 `SENTRY_AUTH_TOKEN` (User Auth Token, scopes: project:releases + project:write) + `SENTRY_ORG` + `SENTRY_PROJECT` 추가 → 자동 활성.
+
+---
+
