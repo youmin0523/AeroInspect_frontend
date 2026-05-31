@@ -3007,3 +3007,89 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - 감사 이력 패널: `getDefectAuditTrail` 은 API 만 추가됨. UI 토글은 우선순위 낮아 본 라운드 skip (작업 명세에 "시간 부족 시 skip" 명시). DefectPanel 우측 expand 또는 DefectCard 토글로 추가 검토.
 - 평면도 컴포넌트 GPS 핀: 본 라운드는 카드 표시까지만. map3d/DefectMarker 등에 gps_lat/lon 좌표 변환 + 핀 마커는 별도 작업.
+
+---
+
+## 🎨 R-v1.1.17 — 신뢰도 등급(grade) UI + 점검자 모드 토글 + Sidebar 업무툴 확장 (2026-06-01)
+
+> Backend R-v1.1.10 grade 시스템(CONFIRMED/REVIEW/REFERENCE) frontend 시각화 + refresh token rotation 수용 + Sidebar 업무툴 아이콘 확장 + 점검자 모드 토글 + 전체 시스템 검증.
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .17.1 | 06-01 00:50 | utils/gradeStyle.js 신규 — CONFIRMED 빨강 / REVIEW 노랑 / REFERENCE 점선 회색 시각화 헬퍼 | src/utils/gradeStyle.js |
+| .17.2 | 06-01 01:00 | DefectCard.jsx — GradeBadge + grade border 우선순위 | src/components/defects/DefectCard.jsx |
+| .17.3 | 06-01 01:10 | DefectFilter.jsx — grade 3버튼 필터 + InspectorModeToggle | src/components/defects/DefectFilter.jsx |
+| .17.4 | 06-01 01:15 | defectStore.js — filters.grade + inspectorMode + getGradeCounts selector | src/store/defectStore.js |
+| .17.5 | 06-01 01:20 | DefectMarker.jsx — grade markerColor 우선 (3D 마커 색상) | src/components/map3d/DefectMarker.jsx |
+| .17.6 | 06-01 01:25 | ReportModal.jsx — CONFIRMED만 보고서 등재 (toEditableDefects 필터) | src/components/report/ReportModal.jsx |
+| .17.7 | 06-01 01:30 | api/authApi.js — refresh token rotation 수용 (P0 보안) | src/api/authApi.js |
+| .17.8 | 06-01 01:35 | Sidebar.jsx — 업무툴 확장: 활성 6개 (dashboard/sites/pre-work/reports/analytics/chat) + 향후 5개 (flights/drones/ai-chat/manual/settings) + Bell 알림 하단 | src/components/layout/Sidebar.jsx |
+
+### 📐 설계 결정
+
+- **grade 색상 매핑**: CONFIRMED 빨강(보고서 등재 = 분쟁 가능 수준), REVIEW 노랑(점검자 추가 확인), REFERENCE 점선 회색(참고용). 3D markerColor 동일 의미.
+- **REFERENCE 자동 숨김**: defectStore.getFilteredDefects()에서 inspectorMode=false면 REFERENCE 자동 숨김. filters.grade==='REFERENCE' 명시 선택은 통과.
+- **ReportModal CONFIRMED-only**: backend grade가 CONFIRMED인 검출만 + 수동 추가(is_manual)는 통과. memory feedback_recall_priority_paid_service 준수.
+- **refresh token rotation**: backend 새 refresh_token 발급 시 frontend도 sessionStorage 덮어쓰기. 탈취 refresh 무한 갱신 차단.
+- **Sidebar 업무툴**: "확실한 업무툴" 요구 충족 — 활성 6개 + 향후 5개 placeholder + 하단 알림/로그아웃.
+
+### ✅ 전체 시스템 검증 (5영역 병렬 Explore — 15건 발견)
+
+| 영역 | P0 | P1 | P2 |
+|---|---|---|---|
+| Backend 보안 | error leak, refresh rotation | log redact 확인됨 | — |
+| Backend Pipeline | grade 전파, 4-way 매핑 | wbf ckpt 검증 코멘트 | — |
+| Frontend | defectStore grade filter | inspector toggle, WS indicator 확인됨 | — |
+| 통합 | CORS vercel.app | confirmed_count 미사용 | — |
+| 문서/배포 | — | .env.example 신규 변수 | README/DEPLOYMENT_GUIDE 갱신 |
+
+총 13건 수정 (P0 7건 + P1 3건 + P2 2건 + Sidebar 확장 1건). P0/P1 일부는 검증 결과 이미 정상 (AI_WEBHOOK_SECRET, log redact, WS indicator).
+
+---
+
+## 🔌 R-v1.1.18 — Sidebar 11개 아이콘 전수 연결 (placeholder 폐지) (2026-06-01)
+
+> 사용자 명시 ("dashboard sidebar icon이랑 다 연결해놔"). 기존 disabled placeholder 5개를 전부 실제 기능으로 연결. logout 버튼 실제 동작 도입.
+
+### 🛠 변경
+
+| 라운드 | 시각 | 작업 | 산출물 |
+|-------|------|------|-------|
+| .18.1 | 06-01 01:55 | SettingsModal.jsx 신규 — 알림 권한/테스트모드/캐시 정리/계정·조직 메타 | src/components/settings/SettingsModal.jsx |
+| .18.2 | 06-01 02:00 | ManualModal.jsx 신규 — 6개 섹션 (빠른시작/현장점검/보고서/관리자/안전수칙/문의) + 외부 링크 | src/components/manual/ManualModal.jsx |
+| .18.3 | 06-01 02:05 | Sidebar.jsx 전면 리팩토링 — ROUTE_NAV (6) + ACTION_NAV (4) + ADMIN_NAV (2) + 하단 4버튼 (알림/설정/로그아웃) | src/components/layout/Sidebar.jsx |
+
+### 🔗 아이콘 연결 매트릭스
+
+| 아이콘 | 종류 | 핸들러 | 결과 |
+|---|---|---|---|
+| 대시보드 | route | NavLink | /dashboard |
+| 현장 관리 | route | NavLink | /employee/sites |
+| 사전 점검 | route | NavLink | /employee/pre-work |
+| 하자 리포트 | route | NavLink | /employee/reports |
+| 통계 분석 | route | NavLink | /employee/analytics |
+| 메신저 | route | NavLink | /employee/chat (unread 뱃지) |
+| 비행 경로 설계 | action | navigate('/session/setup') | 세션 셋업 진입 |
+| 드론 관리 | action | navigate('/employee/admin/gpu') or alert | admin → GPU 모니터, 일반 → 안내 |
+| AI 어시스턴트 | action | useAiChatStore.open() | GlobalFloatingChatbot 패널 열림 |
+| 운영 매뉴얼 | action | setManualOpen(true) | ManualModal |
+| 조직원 관리 (admin) | route | NavLink | /employee/admin/members |
+| GPU 모니터 (admin) | route | NavLink | /employee/admin/gpu |
+| 알림 | action | toggleDropdown() | NotificationDropdown |
+| 설정 | action | setSettingsOpen(true) | SettingsModal |
+| 로그아웃 | action | authStore.logout() + navigate('/login') | 세션 종료 + 로그인 이동 |
+
+### 📐 설계 결정
+
+- **route vs action 분리**: 기존 페이지가 있으면 NavLink(라우트), 모달/스토어 액션이면 button. 단순한 동작은 navigate, 복잡한 진입(권한 분기 포함)은 button onClick.
+- **disabled placeholder 폐지**: 클릭해도 동작 없는 아이콘은 사용자 혼란만 유발. 전부 실제 기능 연결.
+- **logout 확인 alert**: 의도하지 않은 로그아웃 방지. confirm() OK 시에만 logout + navigate('/login', replace).
+- **드론 관리 권한 분기**: 일반 member 클릭 시 alert로 안내 (라우트 진입 후 OrgRequired adminOnly 차단보다 친절한 UX).
+- **SettingsModal 테스트모드 토글**: enterTestMode()는 세션 가드 통과를 위해 mock 데이터 채움. 종료 시 confirm + reset.
+- **ManualModal 외부 링크**: GitHub/Notion은 placeholder URL. 실제 운영 배포 후 도메인 갱신 필요.
+
+### ⚠️ 인지된 한계
+
+- 현재 Sidebar는 DashboardLayout 내부에만 마운트됨. /employee/* 페이지에는 Sidebar 미노출 (기존 구조 유지). 모든 페이지 일관 노출은 별도 라운드.
+- SettingsModal 테마/언어/단축키는 다음 라운드 (현재 stub).
+- ManualModal 외부 링크 (Notion/GitHub) placeholder URL 상태.

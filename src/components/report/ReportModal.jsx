@@ -28,17 +28,21 @@ const LEVEL_NAME = {
 
 // 세션 defect(WS 스트림 원본) → 리포트 defect(편집용) 변환
 // //* [Modified Code v2] location 은 area 와 독립 필드. 초기값은 area 기반 휴리스틱으로만 추정.
+// //* R-v1.1.17 등재 정책: backend grade='CONFIRMED' 만 보고서 등재. REVIEW/REFERENCE 는 제외.
+//     (사용자 수동 추가는 is_manual=true 라 grade 무관 통과)
 function toEditableDefects(raw) {
-  return raw.map((d) => ({
-    ...d,
-    trade: d.trade ?? suggestTradeFromCode(d.category_code),
-    trade_confidence: d.trade_confidence ?? 0.65,
-    location: d.location ?? d.location_label ?? inferInitialLocation(d.area),
-    verified: d.verified ?? false,
-    action_note: d.action_note ?? '',
-    is_manual: d.is_manual ?? false,
-    image_wide: d.image_wide ?? null,
-  }))
+  return raw
+    .filter((d) => d.is_manual || !d.grade || d.grade === 'CONFIRMED')
+    .map((d) => ({
+      ...d,
+      trade: d.trade ?? suggestTradeFromCode(d.category_code),
+      trade_confidence: d.trade_confidence ?? 0.65,
+      location: d.location ?? d.location_label ?? inferInitialLocation(d.area),
+      verified: d.verified ?? false,
+      action_note: d.action_note ?? '',
+      is_manual: d.is_manual ?? false,
+      image_wide: d.image_wide ?? null,
+    }))
 }
 
 export default function ReportModal() {

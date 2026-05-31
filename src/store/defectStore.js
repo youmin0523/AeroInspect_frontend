@@ -32,7 +32,9 @@ const useDefectStore = create((set, get) => ({
     severity: null,   // 'HIGH' | 'MED' | 'LOW' | null (전체)
     area: null,       // 'A' | 'B' | 'C' | 'D' | 'E' | null
     categoryCode: null,
+    grade: null,      // R-v1.1.17: 'CONFIRMED' | 'REVIEW' | 'REFERENCE' | null (전체)
   },
+  inspectorMode: false,  // R-v1.1.17: 점검자 모드 토글 — REFERENCE 노출 여부
   selectedDefect: null,
   isLoading: false,
 
@@ -166,24 +168,46 @@ const useDefectStore = create((set, get) => ({
   reset: () =>
     set({
       defects: [],
-      filters: { severity: null, area: null, categoryCode: null },
+      filters: { severity: null, area: null, categoryCode: null, grade: null },
+      inspectorMode: false,
       selectedDefect: null,
       testMediaReady: false,
       pendingTestDefects: [],
       lastManualSelectAt: 0,
     }),
 
+  /** 점검자 모드 토글 — REFERENCE 등급 노출 여부 (R-v1.1.17) */
+  toggleInspectorMode: () =>
+    set((state) => ({ inspectorMode: !state.inspectorMode })),
+
   // ── Selectors ───────────────────────────
 
-  /** 필터 적용된 하자 목록 */
+  /** 필터 적용된 하자 목록 — R-v1.1.17 grade + inspectorMode 적용 */
   getFilteredDefects: () => {
-    const { defects, filters } = get()
+    const { defects, filters, inspectorMode } = get()
     return defects.filter((d) => {
       if (filters.severity && d.severity !== filters.severity) return false
       if (filters.area && d.area !== filters.area) return false
       if (filters.categoryCode && d.category_code !== filters.categoryCode) return false
+      // grade 필터 (CONFIRMED/REVIEW/REFERENCE)
+      if (filters.grade && d.grade !== filters.grade) return false
+      // 점검자 모드 OFF면 REFERENCE 등급 자동 숨김 (사용자 명시 검색 시 통과)
+      if (!inspectorMode && !filters.grade && d.grade === 'REFERENCE') return false
       return true
     })
+  },
+
+  /** 등급별 카운트 (R-v1.1.17) — DefectPanel/통계용 */
+  getGradeCounts: () => {
+    const { defects } = get()
+    return defects.reduce(
+      (acc, d) => {
+        const g = d.grade || 'REVIEW'
+        if (acc[g] !== undefined) acc[g] += 1
+        return acc
+      },
+      { CONFIRMED: 0, REVIEW: 0, REFERENCE: 0 }
+    )
   },
 
   /** 심각도별 카운트 */

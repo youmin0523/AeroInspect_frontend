@@ -9,13 +9,16 @@
 
 import useDefectStore from '../../store/defectStore.js'
 import { DEFECT_AREAS, SEVERITY_CONFIG } from '../../constants/defectCategories.js'
+import { GRADE_LABEL_KO, GRADE_STYLE } from '../../utils/gradeStyle.js'
+
+const GRADES = ['CONFIRMED', 'REVIEW', 'REFERENCE']
 
 export default function DefectFilter() {
   const filters = useDefectStore((s) => s.filters)
   const setFilter = useDefectStore((s) => s.setFilter)
   const clearFilters = useDefectStore((s) => s.clearFilters)
 
-  const hasActiveFilter = filters.severity || filters.area
+  const hasActiveFilter = filters.severity || filters.area || filters.grade
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -50,6 +53,23 @@ export default function DefectFilter() {
         ))}
       </div>
 
+      {/* 등급 필터 (R-v1.1.10) — 보고서 등재 기준 시각 확인 */}
+      <div className="flex items-center gap-1 border-l border-dashboard-border pl-2">
+        {GRADES.map((g) => (
+          <FilterBtn
+            key={g}
+            active={filters.grade === g}
+            onClick={() => setFilter('grade', filters.grade === g ? null : g)}
+            label={GRADE_LABEL_KO[g]}
+            color={GRADE_STYLE[g].markerColor}
+            title={`${g} — 신뢰도 등급 필터`}
+          />
+        ))}
+      </div>
+
+      {/* 점검자 모드 토글 (R-v1.1.17) — REFERENCE 등급 노출 여부 */}
+      <InspectorModeToggle />
+
       {/* 초기화 */}
       {hasActiveFilter && (
         <button
@@ -60,6 +80,24 @@ export default function DefectFilter() {
         </button>
       )}
     </div>
+  )
+}
+
+function InspectorModeToggle() {
+  const inspectorMode = useDefectStore((s) => s.inspectorMode)
+  const toggle = useDefectStore((s) => s.toggleInspectorMode)
+  return (
+    <button
+      onClick={toggle}
+      title="점검자 모드 — REFERENCE 등급(참고용)까지 노출. OFF면 보고서/실사용 기준만 보임"
+      className={`px-2 py-0.5 text-xs rounded border transition-all border-l border-dashboard-border ml-2 ${
+        inspectorMode
+          ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 font-semibold'
+          : 'border-dashboard-border text-slate-500 hover:text-white hover:border-neutral-500'
+      }`}
+    >
+      🔍 점검자 모드 {inspectorMode ? 'ON' : 'OFF'}
+    </button>
   )
 }
 

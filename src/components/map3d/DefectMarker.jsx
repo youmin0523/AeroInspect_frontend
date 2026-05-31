@@ -11,6 +11,7 @@ import { useState, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import useDefectStore from '../../store/defectStore.js'
+import { getGradeStyle, getGradeLabel } from '../../utils/gradeStyle.js'
 
 const SEVERITY_COLORS = {
   HIGH: '#ef4444',
@@ -25,7 +26,11 @@ export default function DefectMarker({ defect }) {
   const selectedDefect = useDefectStore((s) => s.selectedDefect)
   const isSelected = selectedDefect?.id === defect.id
 
-  const color = SEVERITY_COLORS[defect.severity] || '#94a3b8'
+  // R-v1.1.17: grade(신뢰도 등급) 우선, 없으면 severity로 fallback
+  // CONFIRMED 빨강 / REVIEW 노랑 / REFERENCE 회색
+  const color = defect.grade
+    ? getGradeStyle(defect.grade).markerColor
+    : (SEVERITY_COLORS[defect.severity] || '#94a3b8')
   const x = defect.lidar_x ?? 0
   const y = defect.lidar_z ?? 1   // Z(고도)를 Three.js Y축으로 매핑
   const z = defect.lidar_y ?? 0
