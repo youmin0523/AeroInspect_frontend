@@ -77,6 +77,11 @@ API.interceptors.response.use(
         })
         const newToken = data.access_token
         sessionStorage.setItem('access_token', newToken)
+        // R-v1.1.17: refresh token rotation — 서버가 새 refresh_token도 발급
+        // 응답에 refresh_token이 있으면 localStorage 덮어쓰기 (회전 적용)
+        if (data.refresh_token) {
+          sessionStorage.setItem('refresh_token', data.refresh_token)
+        }
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         processQueue(null, newToken)
         return API(originalRequest)

@@ -14,7 +14,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@react-three/drei": "^9.117.3",
     "@react-three/fiber": "^8.17.10",
-    "@sentry/react": "^8.0.0",
+    "@sentry/react": "^8.55.2",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

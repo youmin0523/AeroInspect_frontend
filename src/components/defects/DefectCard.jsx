@@ -22,6 +22,7 @@ import SeverityBadge from './SeverityBadge.jsx'
 import DefectReviewActions from './DefectReviewActions.jsx'
 import useDefectStore from '../../store/defectStore.js'
 import { DEFECT_AREAS } from '../../constants/defectCategories.js'
+import { getGradeStyle, getGradeLabel, GRADE_DESCRIPTION } from '../../utils/gradeStyle.js'
 
 // review_status 별 border (severity 보다 우선 — 검수 진행 상태가 시각 1순위)
 const REVIEW_BORDER = {
@@ -53,6 +54,21 @@ function ModelBadge({ modelId }) {
   )
 }
 
+function GradeBadge({ grade }) {
+  if (!grade) return null
+  const style = getGradeStyle(grade)
+  const label = getGradeLabel(grade)
+  const desc = GRADE_DESCRIPTION[grade] ?? ''
+  return (
+    <span
+      className={`inline-flex items-center text-[10px] font-medium rounded px-1.5 py-0.5 ${style.badge}`}
+      title={desc}
+    >
+      {label}
+    </span>
+  )
+}
+
 function GpsBadge({ lat, lon }) {
   if (typeof lat !== 'number' || typeof lon !== 'number') return null
   const latLabel = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}`
@@ -75,8 +91,10 @@ export default function DefectCard({ defect }) {
 
   const areaInfo = DEFECT_AREAS[defect.area]
 
-  // //* [Modified Code v2] review_status border > severity border 순으로 fallback
+  // border 우선순위: 선택 > 검수상태 > grade (R-v1.1.10) > severity
+  // grade는 보고서 신뢰도 — 점검자가 한눈에 등재 여부 판단 가능해야 함
   const reviewBorder = REVIEW_BORDER[defect.review_status]
+  const gradeBorder = defect.grade ? getGradeStyle(defect.grade).border : null
   const severityBorder = {
     HIGH: 'border-red-500/30 hover:border-red-500/60',
     MED:  'border-amber-500/30 hover:border-amber-500/60',
@@ -85,7 +103,7 @@ export default function DefectCard({ defect }) {
 
   const borderClass = isSelected
     ? 'border-accent-500 bg-accent-500/5 shadow-accent-900/20'
-    : (reviewBorder ?? severityBorder)
+    : (reviewBorder ?? gradeBorder ?? severityBorder)
 
   return (
     <div
@@ -116,9 +134,10 @@ export default function DefectCard({ defect }) {
 
         {/* 내용 */}
         <div className="flex-1 min-w-0">
-          {/* 상단: 코드 + 심각도 */}
+          {/* 상단: 코드 + 등급 + 심각도 */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono text-slate-400">{defect.category_code}</span>
+            <GradeBadge grade={defect.grade} />
             <SeverityBadge severity={defect.severity} />
             {areaInfo && (
               <span className="text-[10px] text-slate-500">{areaInfo.label}</span>

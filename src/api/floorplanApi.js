@@ -1,205 +1,137 @@
 /**
  * api/floorplanApi.js
- * 역할: 평면도/CAD → 3D 모델링 백엔드 API axios 래퍼
- *       - validate:       업로드 전 이미지 품질 사전 검증 (Stateless)
- *       - analyze:        평면도(JPG/PNG/WEBP) OpenCV 벽체 추출 (Stateless)
- *       - upload+process: CAD(DXF) / PDF / 이미지 → DB 저장 + 벽체 추출 (DB 필요)
- *       - uploadAndProcess: 두 단계를 하나로 묶고 onProgress(0-100) 통합 보고
+ * 역할: 평면도(도면) 업로드·분석 REST 클라이언트
  *
- *   진행률 모델:
- *     - axios onUploadProgress 는 0-100% 의 "전송" 단계만 보고 → 0-40% 로 매핑
- *     - 서버 처리(40-90%)는 폴링 대신 시간 기반 추정 (실제 처리 100ms~3s)
- *     - 응답 도착 시 100%
+ * 백엔드 엔드포인트(/api/v1/floorplan/*):
+ *   POST /analyze            → 이미지 벽체 추출 (stateless, JPG/PNG/WEBP)
+ *   POST /upload             → 파일 업로드 + DB 기록 (JPG/PNG/PDF/DXF)
+ *   POST /{id}/process       → 업로드된 도면 OpenCV 처리
  *
- *   인증: axios interceptor (다른 API 와 동일) 가 토큰 자동 주입한다고 가정.
+ * 사용처: src/pages/employee/PreWork.jsx
  */
-
 import axios from 'axios'
 
-const BASE = '/api/v1/floorplan'
+const API = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+})
 
-// 클라이언트 사전 검증 — 백엔드 도달 전 거름망
-export const FLOORPLAN_LIMITS = {
-  IMAGE_MAX_BYTES: 25 * 1024 * 1024,  // 25MB
-  IMAGE_MIN_BYTES: 50 * 1024,         // 50KB (백엔드 validate 와 동일)
-  CAD_MAX_BYTES: 50 * 1024 * 1024,    // 50MB
-  IMAGE_MIME: ['image/jpeg', 'image/png', 'image/webp'],
-  CAD_EXT: ['.dwg', '.dxf', '.ifc'],
+API.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('access_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  const currentOrg = JSON.parse(sessionStorage.getItem('current_org') || 'null')
+  if (currentOrg?.id) config.headers['X-Organization-Id'] = currentOrg.id
+  return config
+})
+
+/** 업로드 진행률 핸들러 빌더 */
+function progressConfig(onProgress) {
+  if (!onProgress) return {}
+  return {
+    onUploadProgress: (e) => {
+      if (e.total) onProgress(Math.round((e.loaded / e.total) * 100))
+    },
+  }
+}
+
+// 허용 확장자/용량 (클라이언트 사전 검증용)
+const MAX_SIZE_MB = 50
+const ACCEPT = {
+  image: { ext: ['jpg', 'jpeg', 'png', 'webp'], label: '이미지(JPG/PNG/WEBP)' },
+  cad: { ext: ['dwg', 'dxf', 'ifc', 'pdf'], label: 'CAD(DWG/DXF/IFC/PDF)' },
 }
 
 /**
- * 클라이언트 사전 검증 — 파일 크기/타입.
- * 백엔드 호출 전에 명백한 실패 케이스를 차단하여 트래픽·대기시간 절약.
- *
+ * 클라이언트 사전 검증 — 백엔드 도달 전 파일 형식/용량 거름망.
  * @param {File} file
  * @param {'image'|'cad'} kind
- * @returns {{ ok: boolean, error?: string }}
+ * @returns {{ok:boolean, error?:string}}
  */
 export function preflightFloorplanFile(file, kind) {
-  if (!file) return { ok: false, error: '파일이 선택되지 않았습니다.' }
-
-  if (kind === 'image') {
-    if (!FLOORPLAN_LIMITS.IMAGE_MIME.includes(file.type)) {
-      return { ok: false, error: `지원하지 않는 이미지 형식입니다 (${file.type || '알 수 없음'}). JPG · PNG · WEBP 만 가능합니다.` }
-    }
-    if (file.size < FLOORPLAN_LIMITS.IMAGE_MIN_BYTES) {
-      return { ok: false, error: `파일이 너무 작습니다 (${Math.round(file.size / 1024)}KB). 최소 50KB 이상이 필요합니다.` }
-    }
-    if (file.size > FLOORPLAN_LIMITS.IMAGE_MAX_BYTES) {
-      return { ok: false, error: `파일이 너무 큽니다 (${Math.round(file.size / 1024 / 1024)}MB). 최대 25MB 까지 업로드 가능합니다.` }
-    }
-  } else if (kind === 'cad') {
-    const name = (file.name || '').toLowerCase()
-    const matched = FLOORPLAN_LIMITS.CAD_EXT.some((ext) => name.endsWith(ext))
-    if (!matched) {
-      return { ok: false, error: `지원하지 않는 CAD 형식입니다. DWG · DXF · IFC 만 가능합니다.` }
-    }
-    if (file.size > FLOORPLAN_LIMITS.CAD_MAX_BYTES) {
-      return { ok: false, error: `파일이 너무 큽니다 (${Math.round(file.size / 1024 / 1024)}MB). 최대 50MB 까지 업로드 가능합니다.` }
-    }
+  if (!file) return { ok: false, error: '파일을 선택해 주세요.' }
+  const rule = ACCEPT[kind] || ACCEPT.image
+  const ext = (file.name.split('.').pop() || '').toLowerCase()
+  if (!rule.ext.includes(ext)) {
+    return { ok: false, error: `${rule.label} 형식만 업로드할 수 있습니다.` }
   }
-
+  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+    return { ok: false, error: `파일이 너무 큽니다. (최대 ${MAX_SIZE_MB}MB)` }
+  }
   return { ok: true }
 }
 
 /**
- * 평면도 이미지 품질 사전 검증.
- * 해상도/선명도/대비/직선비율/직각수/기울기/벽체수 7개 항목 종합.
- *
+ * 평면도 이미지 품질 검증 (백엔드 /validate).
  * @param {File} file
- * @returns {Promise<{ status: 'ok'|'warning'|'rejected', score: number, checks: object, warnings: string[], errors: string[] }>}
+ * @returns {Promise<object>} { valid, reasons, ... }
  */
 export async function validateFloorplan(file) {
-  const formData = new FormData()
-  formData.append('file', file)
-  const { data } = await axios.post(`${BASE}/validate`, formData)
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await API.post('/api/v1/floorplan/validate', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
   return data
 }
 
 /**
- * 평면도 이미지 → 벽체 좌표 추출 (Stateless, DB 미사용).
- * /employee/pre-work 의 L2 경로에서 사용.
- *
- * @param {File} file
- * @param {(percent: number) => void} [onProgress] 0-100, 업로드+추정 통합
- * @returns {Promise<{ walls: Array, outline: Array, image_width: number, image_height: number, wall_count: number }>}
+ * 평면도 이미지 → 벽체 라인 추출 (stateless).
+ * @param {File} file  JPG/PNG/WEBP 이미지
+ * @param {(pct:number)=>void} [onProgress]
+ * @returns {Promise<object>} { walls, outline, image_width, image_height, ... }
  */
 export async function analyzeFloorplan(file, onProgress) {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  let serverPhaseTimer = null
-  const cleanup = () => {
-    if (serverPhaseTimer) {
-      clearInterval(serverPhaseTimer)
-      serverPhaseTimer = null
-    }
-  }
-
-  try {
-    const { data } = await axios.post(`${BASE}/analyze`, formData, {
-      onUploadProgress: (e) => {
-        if (!onProgress || !e.total) return
-        // 전송: 0-40% 구간으로 매핑
-        const uploadPct = Math.round((e.loaded / e.total) * 40)
-        onProgress(uploadPct)
-
-        // 업로드 완료 시 서버 처리 단계 추정 시작 (40 → 90, 매 200ms 1.5%씩)
-        if (e.loaded >= e.total && !serverPhaseTimer) {
-          let p = 40
-          serverPhaseTimer = setInterval(() => {
-            p = Math.min(p + 1.5, 90)
-            onProgress(Math.round(p))
-            if (p >= 90) cleanup()
-          }, 200)
-        }
-      },
-    })
-    cleanup()
-    onProgress?.(100)
-    return data
-  } catch (err) {
-    cleanup()
-    throw err
-  }
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await API.post('/api/v1/floorplan/analyze', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...progressConfig(onProgress),
+  })
+  return data
 }
 
 /**
- * CAD/PDF 파일 업로드 + 벽체 추출 (DB 저장).
- * /employee/pre-work 의 L1 경로에서 사용. DXF 의 LINE 엔티티를 정규화 좌표로 추출.
- *
- * @param {File} file
- * @param {(percent: number) => void} [onProgress] 0-100, 업로드+처리 통합
- * @returns {Promise<{ id, filename, status, wall_count, walls, outline }>}
- *   walls 는 정규화 0-1 좌표. outline 은 DXF 경로에서 빈 배열 반환될 수 있음.
+ * CAD/도면 파일 업로드 + 처리 (upload → process 2단계).
+ * @param {File} file  JPG/PNG/PDF/DXF
+ * @param {(pct:number)=>void} [onProgress]
+ * @returns {Promise<object>} 처리 결과 (walls 포함)
  */
 export async function uploadAndProcessCad(file, onProgress) {
-  // 1단계: 파일 업로드 (0-30%)
-  const uploadFd = new FormData()
-  uploadFd.append('file', file)
-
-  const uploadRes = await axios.post(`${BASE}/upload`, uploadFd, {
-    onUploadProgress: (e) => {
-      if (!onProgress || !e.total) return
-      const pct = Math.round((e.loaded / e.total) * 30)
-      onProgress(pct)
-    },
+  const form = new FormData()
+  form.append('file', file)
+  const up = await API.post('/api/v1/floorplan/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...progressConfig(onProgress),
   })
-
-  const floorplanId = uploadRes.data?.id
-  if (!floorplanId) {
-    throw new Error('업로드 응답에 floorplan id 가 없습니다.')
-  }
-
-  onProgress?.(35)
-
-  // 2단계: 처리 트리거 (35-90% 추정 진행)
-  let processTimer = null
-  const startEstimation = () => {
-    let p = 35
-    processTimer = setInterval(() => {
-      p = Math.min(p + 2, 90)
-      onProgress?.(Math.round(p))
-      if (p >= 90 && processTimer) {
-        clearInterval(processTimer)
-        processTimer = null
-      }
-    }, 250)
-  }
-  startEstimation()
-
-  try {
-    const { data } = await axios.post(`${BASE}/${floorplanId}/process`)
-    if (processTimer) {
-      clearInterval(processTimer)
-      processTimer = null
-    }
-    onProgress?.(100)
-    // /process 는 outline 을 반환하지 않으므로(스키마 한계) 기본값 보장
-    return {
-      ...data,
-      outline: data.outline ?? [],
-    }
-  } catch (err) {
-    if (processTimer) {
-      clearInterval(processTimer)
-      processTimer = null
-    }
-    throw err
-  }
+  const floorplanId = up.data?.id
+  if (!floorplanId) return up.data
+  // 업로드 직후 처리 트리거
+  const { data } = await API.post(`/api/v1/floorplan/${floorplanId}/process`)
+  return { ...up.data, ...data }
 }
 
 /**
- * axios 에러를 사용자 표시용 메시지로 정규화.
- * FastAPI 의 HTTPException 응답({detail: string|object}) 을 우선 추출.
- *
- * @param {unknown} err
+ * 도면 API 에러 → 사용자용 한국어 메시지 변환.
+ * @param {unknown} err  axios 에러
  * @returns {string}
  */
 export function describeFloorplanError(err) {
+  const status = err?.response?.status
   const detail = err?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg
-  if (err?.message) return err.message
+  if (detail) return String(detail)
+  if (status === 400) return '지원하지 않는 파일 형식입니다. (JPG/PNG/WEBP/PDF/DXF)'
+  if (status === 401) return '로그인이 필요합니다. 다시 로그인해 주세요.'
+  if (status === 403) return '이 작업을 수행할 권한이 없습니다.'
+  if (status === 413) return '파일이 너무 큽니다. (최대 50MB)'
+  if (status === 422) return '도면 처리에 실패했습니다. 다른 도면으로 시도해 주세요.'
+  if (status >= 500) return '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+  if (err?.code === 'ERR_NETWORK') return '네트워크 연결을 확인해 주세요.'
   return '알 수 없는 오류가 발생했습니다.'
+}
+
+export default {
+  preflightFloorplanFile,
+  validateFloorplan,
+  analyzeFloorplan,
+  uploadAndProcessCad,
+  describeFloorplanError,
 }
