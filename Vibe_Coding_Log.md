@@ -3093,3 +3093,21 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 현재 Sidebar는 DashboardLayout 내부에만 마운트됨. /employee/* 페이지에는 Sidebar 미노출 (기존 구조 유지). 모든 페이지 일관 노출은 별도 라운드.
 - SettingsModal 테마/언어/단축키는 다음 라운드 (현재 stub).
 - ManualModal 외부 링크 (Notion/GitHub) placeholder URL 상태.
+
+## 🔧 R-v1.1.19 — 전체 빌드 검증 + 누락 모듈 복구 (2026-06-02)
+
+> 사용자 명시 ("전체 기능 및 UI/UX 검증"). vite build 검증으로 빌드 차단 결함 2건 발견·수정.
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| .19.1 | 06-02 08:5x | @sentry/react 미설치(package.json엔 있음) → 설치, 빌드 resolve 복구 | package.json, package-lock.json |
+| .19.2 | 06-02 09:1x | floorplanApi.js 누락 생성 (preflight/validate/analyze/uploadAndProcessCad/describeError 5함수) | src/api/floorplanApi.js |
+
+### 📐 설계 결정
+
+- **floorplanApi 누락 = PreWork.jsx가 import하나 파일 미커밋**: 빌드 차단(rollup resolve fail). 백엔드 /floorplan/* 엔드포인트(analyze/upload/process/validate) 계약에 맞춰 axios 클라이언트 구현. 클라이언트 사전검증(preflightFloorplanFile)으로 백엔드 도달 전 형식/용량 거름.
+- **검증 결과**: vite build 성공 (4570 modules, ~17s).
+
+### ➡️ 후속
+
+- 노션 일괄 동기화
