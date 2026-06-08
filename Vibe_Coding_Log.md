@@ -3111,3 +3111,22 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### ➡️ 후속
 
 - 노션 일괄 동기화
+
+## 🔧 R-v1.1.20 — 배포 환경 로그인/업로드 불가 결함 수정 (2026-06-08)
+
+> 사용자 보고 ("배포 URL에서 로그인 안 됨 + 업로드 이미지/영상 안 뜸"). 운영 백엔드(admin/admin)·CORS·업로드 엔드포인트는 전수 정상 확인. 원인은 프론트 빌드가 백엔드를 localhost:8000 로 가리킨 것.
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| .20.1 | 06-08 16:2x | **근본원인**: Vercel `VITE_API_BASE_URL` 이 빈 문자열("") → 코드 `\|\| 'http://localhost:8000'` fallback 발동 → 번들에 localhost 박힘. 로그인·업로드·스트림 전부 사용자 PC localhost 로 요청돼 실패(HTTPS→HTTP mixed-content 차단 포함) | Vercel env (VITE_API_BASE_URL=`https://aeroinspect-backend.fly.dev`) |
+| .20.2 | 06-08 16:2x | WS 변수명 불일치: 코드 `VITE_WS_URL` vs Vercel `VITE_WS_BASE_URL`(미사용) → 코드명 기준 `VITE_WS_URL`=`wss://aeroinspect-backend.fly.dev/api/v1/ws` 신설 | Vercel env |
+| .20.3 | 06-08 16:2x | **테스트모드 이미지 스트림 코드버그**: `TEST_STREAM_URLS`(/api/v1/stream/test/rgb)가 상대경로라 API_BASE 미부착 → 배포 시 Vercel 도메인으로 새어 SPA HTML 반환 → `<img>` onError. streamUrl 에 API_BASE 부착(절대 URL 이면 통과) | src/components/video/LiveVideoFeed.jsx |
+
+### 📐 설계 결정
+
+- **동영상은 멀쩡, 이미지만 깨진 이유**: 업로드 동영상은 `directVideoUrl=${API_BASE}/...` 로 이미 절대주소. 이미지 MJPEG 만 상대경로라 env 만 고쳐선 안 떴음 → 코드 수정 필수.
+- **env 검증은 번들 grep 으로**: `vercel env pull` 이 암호화 운영 시크릿을 ""로 마스킹해 값 확인 불가. 재배포 후 `/assets/*.js` 에서 `fly.dev` 존재 여부로 검증.
+
+### ➡️ 후속
+
+- 노션 일괄 동기화

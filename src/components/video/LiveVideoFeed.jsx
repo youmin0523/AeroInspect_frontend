@@ -53,7 +53,13 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   const urls = isTestMode ? TEST_STREAM_URLS : STREAM_URLS
-  const streamUrl = urls[cameraMode] || STREAM_URLS.rgb
+  const rawStreamUrl = urls[cameraMode] || STREAM_URLS.rgb
+  // 상대경로(/api/v1/...)는 배포 환경에서 Vercel 도메인으로 새어 SPA HTML 이 돌아옴 →
+  // <img> onError. API_BASE(백엔드 절대주소)를 부착해 MJPEG 스트림이 백엔드로 가게 함.
+  // 이미 절대 URL(VITE_STREAM_* 를 절대값으로 설정)이면 그대로 둠.
+  const streamUrl = rawStreamUrl.startsWith('http')
+    ? rawStreamUrl
+    : `${API_BASE}${rawStreamUrl}`
 
   // 하자 선택 시 → 해당 시점 프레임 표시. testMode/real 양쪽에서 동일 패턴.
   // R31 시점: real 경로는 영상 수신기 도착 후 활성. 그때 backend가 동일한 defect endpoint
