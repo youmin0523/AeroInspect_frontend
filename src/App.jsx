@@ -99,14 +99,17 @@ function DashboardLayout() {
   useEffect(() => {
     if (!isTestMode) return
     const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+    // /test/init·/test/stop 은 인증 필요 — 토큰 수동 첨부 (누락 시 401 → 모델 로드 안 됨).
+    const token = sessionStorage.getItem('access_token')
+    const authHdr = token ? { Authorization: `Bearer ${token}` } : {}
     // 초기화만 실행 (스캔 + 모델 로드). 재생은 사용자가 START 클릭 시 시작
-    fetch(`${apiBase}/api/v1/stream/test/init`, { method: 'POST' })
+    fetch(`${apiBase}/api/v1/stream/test/init`, { method: 'POST', headers: authHdr })
       .then((r) => r.json())
       .then((data) => console.log('[TestMode] Initialized:', data))
       .catch((err) => console.warn('[TestMode] Init failed:', err))
 
     return () => {
-      fetch(`${apiBase}/api/v1/stream/test/stop`, { method: 'POST' }).catch(() => {})
+      fetch(`${apiBase}/api/v1/stream/test/stop`, { method: 'POST', headers: authHdr }).catch(() => {})
     }
   }, [isTestMode])
 

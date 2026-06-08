@@ -19,6 +19,14 @@ import { uploadWithProgress } from '../../utils/uploadWithProgress'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
+// 테스트모드 제어 엔드포인트(/test/start, /source, /upload 등)는 백엔드에서 인증을 요구한다.
+// 여기서는 axios API 인스턴스(interceptor 자동 첨부) 대신 fetch/XHR 를 쓰므로 토큰을 수동 첨부.
+// 누락 시 401 → res.ok=false → 상태 미변경 → "버튼 눌러도 반응 없음" 사고.
+function authHeaders(extra = {}) {
+  const token = sessionStorage.getItem('access_token')
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra
+}
+
 export default function TestModeBar() {
   const testSource = useSessionStore((s) => s.testSource)
   const setTestSource = useSessionStore((s) => s.setTestSource)
@@ -46,7 +54,7 @@ export default function TestModeBar() {
     resetTestGate()
     setDefects([])
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST', headers: authHeaders() })
       if (res.ok) setTestPlayState('playing')
     } catch (err) {
       console.warn('[TestMode] 시작 실패:', err)
@@ -55,7 +63,7 @@ export default function TestModeBar() {
 
   const handlePause = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/pause`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/pause`, { method: 'POST', headers: authHeaders() })
       if (res.ok) setTestPlayState('paused')
     } catch (err) {
       console.warn('[TestMode] 일시중지 실패:', err)
@@ -64,7 +72,7 @@ export default function TestModeBar() {
 
   const handleResume = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/resume`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/resume`, { method: 'POST', headers: authHeaders() })
       if (res.ok) setTestPlayState('playing')
     } catch (err) {
       console.warn('[TestMode] 재개 실패:', err)
@@ -73,7 +81,7 @@ export default function TestModeBar() {
 
   const handleStop = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST', headers: authHeaders() })
       if (res.ok) {
         setTestPlayState('stopped')
         resetTestGate()  // 잔여 큐 폐기 + 게이트 닫음
@@ -89,7 +97,7 @@ export default function TestModeBar() {
     try {
       await fetch(`${API_BASE}/api/v1/stream/test/detection-mode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ mode: newMode }),
       })
       setTestDetectionMode(newMode)
@@ -105,7 +113,7 @@ export default function TestModeBar() {
     try {
       await fetch(`${API_BASE}/api/v1/stream/test/source`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ source: newSource }),
       })
       setTestSource(newSource)
@@ -139,6 +147,7 @@ export default function TestModeBar() {
         `${API_BASE}/api/v1/stream/test/upload`,
         formData,
         (p) => setUploadPct(p.percent),
+        authHeaders(),
       )
       perfEnd('upload-network', { status: res.status })
       if (res.status < 400 && res.body) {
@@ -159,7 +168,7 @@ export default function TestModeBar() {
 
   const handleClearUploads = useCallback(async () => {
     try {
-      await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'DELETE' })
+      await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'DELETE', headers: authHeaders() })
       setUploadedCount(0)
     } catch (err) {
       console.warn('[TestMode] 삭제 실패:', err)
