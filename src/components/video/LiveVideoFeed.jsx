@@ -216,6 +216,18 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const isDirectVideoMode = (
     isTestMode && active?.kind === 'video' && active?.filename && cameraMode === 'rgb'
   )
+
+  // AI 모델 로딩 중 배너 — '로딩 중'을 '오류/No Signal'과 명확히 구분.
+  // 영상은 재생되지만 모델 로드(최초 1회) 전엔 검출 카드가 안 뜨므로 이 안내가 필수.
+  const showModelLoading = isTestMode && active?.models_loading && testPlayState === 'playing'
+  const modelLoadingBanner = showModelLoading ? (
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-950/85 border border-amber-400/50 shadow-lg">
+      <span className="w-3 h-3 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+      <span className="text-[11px] font-mono font-semibold text-amber-200 tracking-wide">
+        AI 모델 로딩 중 · 최초 1회 (최대 20초)
+      </span>
+    </div>
+  ) : null
   const videoRef = useRef(null)
   const directVideoUrl = isDirectVideoMode
     ? `${API_BASE}/api/v1/stream/test/upload/file/${encodeURIComponent(active.filename)}`
@@ -257,6 +269,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           frameW={active?.frame_w}
           frameH={active?.frame_h}
         />
+        {modelLoadingBanner}
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900/80 border border-cyan-500/40">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
           <span className="text-[10px] font-mono tracking-wider text-cyan-200">
@@ -477,6 +490,9 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           </button>
         </div>
       )}
+
+      {/* AI 모델 로딩 중 배너 (로딩 ≠ 오류 구분) */}
+      {modelLoadingBanner}
 
       {/* 열화상 / 블렌드 모드일 때만 온도 HUD 표시 */}
       <ThermalOverlay visible={cameraMode === 'thermal' || cameraMode === 'blend'} />

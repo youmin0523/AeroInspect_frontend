@@ -40,6 +40,7 @@ import DronesPanel from '../components/dashboard/DronesPanel.jsx'
 import TestModeBar from '../components/dashboard/TestModeBar.jsx'
 import useDroneStore, { DRONE_CAMERA_MAP } from '../store/droneStore.js'
 import useSessionStore from '../store/sessionStore.js'
+import useDefectStore from '../store/defectStore.js'
 import { perfStart, perfEnd } from '../utils/perfTimer'
 import { maybeDownsampleAll } from '../utils/imageDownsample'
 import { uploadWithProgress } from '../utils/uploadWithProgress'
@@ -198,6 +199,10 @@ export default function Dashboard() {
       perfStart('upload-total')
       setDropUploading(true)
       setUploadProgress({ percent: 0, speedKbps: 0, etaSeconds: 0 })
+      // 테스트 제어 엔드포인트(/source·/upload·/start)는 백엔드 인증 필요.
+      // 토큰 누락 시 401 → 조용히 실패 → "드롭해도 아무 반응 없음" 사고. 버튼 경로와 동일하게 수동 첨부.
+      const token = sessionStorage.getItem('access_token')
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
       try {
         // 0) 클라이언트 측 이미지 다운샘플 (4K → 1280) — 사이즈 80~95% 절감.
         // 영상은 그대로 통과(ffmpeg.wasm은 무거워서 ROI 낮음).
@@ -208,12 +213,13 @@ export default function Dashboard() {
         const sizeReducedMb = Math.round((originalBytes - finalBytes) / (1024 * 1024) * 10) / 10
         perfEnd('upload-downsample', { reducedMb: sizeReducedMb })
 
-        // 1) 업로드 모드 전환 — backend stream source switch
+        // 1) 업로드 모드 전환 — backend stream source switch + 프론트 store 동기화
         await fetch(`${API_BASE}/api/v1/stream/test/source`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify({ source: 'upload' }),
         }).catch(() => {})
+        useSessionStore.getState().setTestSource('upload')
 
         // 2) progress 추적 업로드 (XHR — fetch는 upload progress 표준 미지원)
         perfStart('upload-network')
@@ -223,6 +229,7 @@ export default function Dashboard() {
           `${API_BASE}/api/v1/stream/test/upload`,
           formData,
           (p) => setUploadProgress({ ...p, sizeReducedMb }),
+          authHeaders,
         )
         perfEnd('upload-network', {
           totalMb: Math.round(finalBytes / (1024 * 1024) * 10) / 10,
@@ -233,8 +240,17 @@ export default function Dashboard() {
           return
         }
 
-        // 3) 자동 START — 모델이 아직 로드 중이어도 backend 가 비동기로 처리, 영상은 즉시 흐름
-        await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' }).catch(() => {})
+        // 3) 자동 START — 게이트 리셋 + 이전 카드 제거 후 재생 시작(버튼 경로 handleStart 와 동일).
+        // 프론트 testPlayState 도 'playing' 으로 동기화해야 <video>.play()·게이트·상태칩이 발화.
+        useDefectStore.getState().resetTestGate()
+        useDefectStore.getState().setDefects([])
+        const startRes = await fetch(`${API_BASE}/api/v1/stream/test/start`, {
+          method: 'POST',
+          headers: authHeaders,
+        }).catch(() => null)
+        if (startRes && startRes.ok) {
+          useSessionStore.getState().setTestPlayState('playing')
+        }
         perfEnd('upload-total', { ok: true })
       } finally {
         setDropUploading(false)

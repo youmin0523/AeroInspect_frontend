@@ -214,7 +214,9 @@ const useSessionStore = create(
         cancelRunner = null
         set({
           isTestMode: true,
-          testSource: 'project',
+          // 진입 즉시 '파일 첨부' 버튼이 보이도록 기본 소스를 upload 로 둔다
+          // (project 였을 때는 업로드 탭을 한 번 더 눌러야 첨부 UI가 떠서 동선이 길었음).
+          testSource: 'upload',
           siteName: '[TEST] 하자 검출 테스트',
           siteUnit: 'TEST-001',
           operatorName: '테스트 운용자',

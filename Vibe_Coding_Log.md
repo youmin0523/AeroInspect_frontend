@@ -3134,3 +3134,24 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### ➡️ 후속
 
 - 노션 일괄 동기화
+
+## 🔧 R-v1.1.21 — 첨부 즉시 자동검출 + 로딩/오류 상태 표시 (2026-06-09)
+
+> 사용자 요청("첨부 완료되면 START 없이 바로 검출 시작 + 로딩/오류 명확화"). 버튼·드래그앤드롭 양 경로 통일.
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| .21.1 | 06-09 | 업로드 완료 시 source='upload' 동기화 후 자동 START(버튼 경로). 모델 사전로드(/test/warmup) on mount | src/components/dashboard/TestModeBar.jsx |
+| .21.2 | 06-09 | 진입 기본 소스 upload — 첨부 버튼 즉시 노출(업로드 탭 클릭 동선 제거) | src/store/sessionStore.js |
+| .21.3 | 06-09 | 로딩/준비/오류 상태칩(모델 로딩중·검출중·오류+재시도) + 영상 로딩 배너(로딩≠오류 구분) | src/components/dashboard/TestModeBar.jsx, src/components/video/LiveVideoFeed.jsx |
+| .21.4 | 06-09 | **드래그앤드롭 무반응 버그**: Dashboard window drop 핸들러가 Authorization 토큰 미첨부(401 조용히 실패) + testPlayState 미동기화. 토큰 첨부 + source/gate/playState 동기화로 버튼 경로와 동작 통일 | src/pages/Dashboard.jsx |
+| .21.5 | 06-09 | /test/active 폴링 2s→1s (자동시작 후 <video> 전환 가속) | src/hooks/useTestActiveMedia.js |
+
+### 📐 설계 결정
+
+- **두 첨부 경로 통일**: 버튼(TestModeBar)·드래그앤드롭(Dashboard) 모두 인증+자동START+상태동기화 동일 동작. 드롭 경로는 그간 토큰 누락으로 사실상 미동작이었음.
+- **로딩≠오류 구분**: 모델 로드 중 노란 배너/칩, 실패 시 빨간 재시도 칩 — 기존 console.warn 묵살 대체.
+
+### ➡️ 후속
+
+- 노션 일괄 동기화
