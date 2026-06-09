@@ -14,9 +14,11 @@ import useTestDetectionsStore from '../store/testDetectionsStore.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const ACTIVE_URL = `${API_BASE}/api/v1/stream/test/active`
-const POLL_MS = 2000
+// 1s 폴링: 업로드 자동시작 직후 <video> 직접재생으로 빠르게 전환되도록(2s→1s).
+// 백엔드 active 응답에 models_loaded/models_loading 도 합쳐져 와 모델 로딩 표시도 같이 갱신.
+const POLL_MS = 1000
 
-const EMPTY = { kind: 'image', filename: null }
+const EMPTY = { kind: 'image', filename: null, models_loaded: false, models_loading: false }
 
 export default function useTestActiveMedia() {
   const isTestMode = useSessionStore((s) => s.isTestMode)

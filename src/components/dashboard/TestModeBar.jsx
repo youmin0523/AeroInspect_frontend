@@ -6,18 +6,28 @@
  *       - 직접 업로드 모드: 이미지/영상 대량 첨부
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Camera, FlaskConical, Upload, Trash2, FolderOpen, Check, Loader2,
   Database, HardDrive, Play, Pause, Square, Box, ScanSearch,
+  Cpu, AlertTriangle,
 } from 'lucide-react'
 import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
+import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
 import { perfStart, perfEnd } from '../../utils/perfTimer'
 import { maybeDownsampleAll } from '../../utils/imageDownsample'
 import { uploadWithProgress } from '../../utils/uploadWithProgress'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
+// 테스트모드 제어 엔드포인트(/test/start, /source, /upload 등)는 백엔드에서 인증을 요구한다.
+// 여기서는 axios API 인스턴스(interceptor 자동 첨부) 대신 fetch/XHR 를 쓰므로 토큰을 수동 첨부.
+// 누락 시 401 → res.ok=false → 상태 미변경 → "버튼 눌러도 반응 없음" 사고.
+function authHeaders(extra = {}) {
+  const token = sessionStorage.getItem('access_token')
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra
+}
 
 export default function TestModeBar() {
   const testSource = useSessionStore((s) => s.testSource)
@@ -34,28 +44,47 @@ export default function TestModeBar() {
   const [uploading, setUploading] = useState(false)
   const [uploadPct, setUploadPct] = useState(0)
   const [switchingSource, setSwitchingSource] = useState(false)
+  const [errorMsg, setErrorMsg] = useState(null)  // 시작/업로드 실패를 사용자에게 가시화
+
+  // 모델 로딩 상태(/test/active 폴링에 합쳐져 옴) — '로딩 중인지 오류인지' 구분 표시용.
+  const activeMedia = useTestActiveMedia()
+  const modelsLoading = !!activeMedia?.models_loading
+  const modelsLoaded = !!activeMedia?.models_loaded
 
   const isUploadMode = testSource === 'upload'
   const isStopped = testPlayState === 'stopped'
   const isPlaying = testPlayState === 'playing'
   const isPaused = testPlayState === 'paused'
 
+  // 테스트 모드 진입 즉시 모델 사전 로드(비차단) — 콜드 스타트 10~20초를
+  // 사용자가 파일 고르고 업로드하는 시간과 겹쳐 첫 검출 지연을 숨긴다.
+  useEffect(() => {
+    fetch(`${API_BASE}/api/v1/stream/test/warmup`, { method: 'POST', headers: authHeaders() })
+      .catch((err) => console.warn('[TestMode] 모델 사전로드 실패:', err))
+  }, [])
+
   // 재생 제어
   const handleStart = useCallback(async () => {
     // ① 게이트 닫고 큐 비우기 + 이전 사이클 누적 카드 제거
     resetTestGate()
     setDefects([])
+    setErrorMsg(null)
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' })
-      if (res.ok) setTestPlayState('playing')
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST', headers: authHeaders() })
+      if (res.ok) {
+        setTestPlayState('playing')
+      } else {
+        setErrorMsg(res.status === 401 ? '인증 만료 — 다시 로그인해 주세요.' : `시작 실패 (오류 ${res.status})`)
+      }
     } catch (err) {
       console.warn('[TestMode] 시작 실패:', err)
+      setErrorMsg('서버에 연결할 수 없습니다 — 잠시 후 재시도.')
     }
   }, [resetTestGate, setDefects, setTestPlayState])
 
   const handlePause = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/pause`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/pause`, { method: 'POST', headers: authHeaders() })
       if (res.ok) setTestPlayState('paused')
     } catch (err) {
       console.warn('[TestMode] 일시중지 실패:', err)
@@ -64,7 +93,7 @@ export default function TestModeBar() {
 
   const handleResume = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/resume`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/resume`, { method: 'POST', headers: authHeaders() })
       if (res.ok) setTestPlayState('playing')
     } catch (err) {
       console.warn('[TestMode] 재개 실패:', err)
@@ -73,7 +102,7 @@ export default function TestModeBar() {
 
   const handleStop = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/v1/stream/test/stop`, { method: 'POST', headers: authHeaders() })
       if (res.ok) {
         setTestPlayState('stopped')
         resetTestGate()  // 잔여 큐 폐기 + 게이트 닫음
@@ -89,7 +118,7 @@ export default function TestModeBar() {
     try {
       await fetch(`${API_BASE}/api/v1/stream/test/detection-mode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ mode: newMode }),
       })
       setTestDetectionMode(newMode)
@@ -105,7 +134,7 @@ export default function TestModeBar() {
     try {
       await fetch(`${API_BASE}/api/v1/stream/test/source`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ source: newSource }),
       })
       setTestSource(newSource)
@@ -124,6 +153,7 @@ export default function TestModeBar() {
     if (!files || files.length === 0) return
     setUploading(true)
     setUploadPct(0)
+    setErrorMsg(null)
     perfStart('upload-total')
     try {
       // 0) 이미지 다운샘플 (4K → 1280) — 영상은 그대로
@@ -139,27 +169,34 @@ export default function TestModeBar() {
         `${API_BASE}/api/v1/stream/test/upload`,
         formData,
         (p) => setUploadPct(p.percent),
+        authHeaders(),
       )
       perfEnd('upload-network', { status: res.status })
       if (res.status < 400 && res.body) {
         setUploadedCount(res.body.total_uploaded || 0)
         perfEnd('upload-total', { ok: true })
+        // 업로드 성공 → 소스를 'upload'로 동기화(백엔드는 이미 자동 전환됨) 후
+        // START 누름 없이 곧바로 하자검출 시작. 모델은 이미 warmup 으로 로딩 중/완료.
+        setTestSource('upload')
+        await handleStart()
       } else {
         perfEnd('upload-total', { ok: false })
+        setErrorMsg(res.status === 401 ? '인증 만료 — 다시 로그인해 주세요.' : `업로드 실패 (오류 ${res.status})`)
       }
     } catch (err) {
       console.warn('[TestMode] 업로드 실패:', err)
       perfEnd('upload-total', { ok: false, err: err.message })
+      setErrorMsg('업로드 중 오류가 발생했습니다 — 다시 시도해 주세요.')
     } finally {
       setUploading(false)
       setUploadPct(0)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }, [])
+  }, [setTestSource, handleStart])
 
   const handleClearUploads = useCallback(async () => {
     try {
-      await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'DELETE' })
+      await fetch(`${API_BASE}/api/v1/stream/test/upload`, { method: 'DELETE', headers: authHeaders() })
       setUploadedCount(0)
     } catch (err) {
       console.warn('[TestMode] 삭제 실패:', err)
@@ -243,6 +280,36 @@ export default function TestModeBar() {
             </span>
           </div>
         </div>
+
+        <div className="w-px h-6 bg-neutral-700" />
+
+        {/* AI 모델/검출 상태 — '로딩 중인지 오류인지' 한눈에 구분 */}
+        {errorMsg ? (
+          <button
+            type="button"
+            onClick={handleStart}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-600/20 border border-red-500/50 text-red-300 hover:bg-red-600/30 transition text-[11px] font-mono"
+            title="다시 시도"
+          >
+            <AlertTriangle size={12} />
+            <span className="max-w-[180px] truncate">{errorMsg}</span>
+            <span className="underline underline-offset-2">재시도</span>
+          </button>
+        ) : modelsLoading ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-mono">
+            <Loader2 size={12} className="animate-spin" />
+            AI 모델 로딩 중… (최초 1회)
+          </div>
+        ) : modelsLoaded ? (
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-mono ${
+            isPlaying
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-neutral-800 border-neutral-600 text-slate-400'
+          }`}>
+            <Cpu size={12} />
+            {isPlaying ? '검출 동작 중' : '모델 준비됨'}
+          </div>
+        ) : null}
 
         <div className="w-px h-6 bg-neutral-700" />
 

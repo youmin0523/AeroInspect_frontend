@@ -3111,3 +3111,47 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### ➡️ 후속
 
 - 노션 일괄 동기화
+
+## 🔧 R-v1.1.20 — 배포 환경 로그인/업로드 불가 결함 수정 (2026-06-08)
+
+> 사용자 보고 ("배포 URL에서 로그인 안 됨 + 업로드 이미지/영상 안 뜸"). 운영 백엔드(admin/admin)·CORS·업로드 엔드포인트는 전수 정상 확인. 원인은 프론트 빌드가 백엔드를 localhost:8000 로 가리킨 것.
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| .20.1 | 06-08 16:2x | **근본원인**: Vercel `VITE_API_BASE_URL` 이 빈 문자열("") → 코드 `\|\| 'http://localhost:8000'` fallback 발동 → 번들에 localhost 박힘. 로그인·업로드·스트림 전부 사용자 PC localhost 로 요청돼 실패(HTTPS→HTTP mixed-content 차단 포함) | Vercel env (VITE_API_BASE_URL=`https://aeroinspect-backend.fly.dev`) |
+| .20.2 | 06-08 16:2x | WS 변수명 불일치: 코드 `VITE_WS_URL` vs Vercel `VITE_WS_BASE_URL`(미사용) → 코드명 기준 `VITE_WS_URL`=`wss://aeroinspect-backend.fly.dev/api/v1/ws` 신설 | Vercel env |
+| .20.3 | 06-08 16:2x | **테스트모드 이미지 스트림 코드버그**: `TEST_STREAM_URLS`(/api/v1/stream/test/rgb)가 상대경로라 API_BASE 미부착 → 배포 시 Vercel 도메인으로 새어 SPA HTML 반환 → `<img>` onError. streamUrl 에 API_BASE 부착(절대 URL 이면 통과) | src/components/video/LiveVideoFeed.jsx |
+| .20.4 | 06-08 16:4x | **START·업로드 먹통 = 인증 누락**: TestModeBar 의 start/pause/resume/stop/source/detection-mode/upload/clear 가 axios(토큰 자동첨부) 아닌 raw fetch/XHR 로 토큰 없이 호출 → 백엔드 `get_current_user` 가 401 → `res.ok=false` → 상태 미변경 → "버튼 무반응". `authHeaders()` 헬퍼로 sessionStorage access_token 수동 첨부 | src/components/dashboard/TestModeBar.jsx, src/utils/uploadWithProgress.js(headers 파라미터 신설), src/App.jsx(test/init·stop) |
+| .20.5 | 06-08 16:4x | **백엔드 라우트 2개 누락**: 프론트가 폴링/참조하는 `GET /test/active`(영상 메타)·`GET /test/upload/file/{filename}`(영상 원본 서빙)이 stream.py 에 없어 404 → 동영상 직접재생 불가. 두 라우트 신설(active_media 반환 + path-traversal 방어 FileResponse) | backend app/api/stream.py |
+
+### 📐 설계 결정
+
+- **동영상은 멀쩡, 이미지만 깨진 이유**: 업로드 동영상은 `directVideoUrl=${API_BASE}/...` 로 이미 절대주소. 이미지 MJPEG 만 상대경로라 env 만 고쳐선 안 떴음 → 코드 수정 필수.
+- **env 검증은 번들 grep 으로**: `vercel env pull` 이 암호화 운영 시크릿을 ""로 마스킹해 값 확인 불가. 재배포 후 `/assets/*.js` 에서 `fly.dev` 존재 여부로 검증.
+- **버그 3겹 구조**: (1)env 빈값→localhost, (2)프론트 제어호출 인증누락→401, (3)백엔드 영상 라우트 누락. env 만 고쳐도 401 로 여전히 먹통이었음. 직접 curl 재현(토큰 유/무 비교)으로 각 계층 분리 진단.
+- **스트림/파일 서빙은 인증 불요 유지**: MJPEG `/test/rgb`, `/test/active`, `/test/upload/file` 은 `<img>/<video>` 가 Authorization 헤더를 못 붙이므로 GET 스트림 계열 정책에 맞춰 public. 제어용 POST(start/source/upload)만 인증.
+
+### ➡️ 후속
+
+- 노션 일괄 동기화
+
+## 🔧 R-v1.1.21 — 첨부 즉시 자동검출 + 로딩/오류 상태 표시 (2026-06-09)
+
+> 사용자 요청("첨부 완료되면 START 없이 바로 검출 시작 + 로딩/오류 명확화"). 버튼·드래그앤드롭 양 경로 통일.
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| .21.1 | 06-09 | 업로드 완료 시 source='upload' 동기화 후 자동 START(버튼 경로). 모델 사전로드(/test/warmup) on mount | src/components/dashboard/TestModeBar.jsx |
+| .21.2 | 06-09 | 진입 기본 소스 upload — 첨부 버튼 즉시 노출(업로드 탭 클릭 동선 제거) | src/store/sessionStore.js |
+| .21.3 | 06-09 | 로딩/준비/오류 상태칩(모델 로딩중·검출중·오류+재시도) + 영상 로딩 배너(로딩≠오류 구분) | src/components/dashboard/TestModeBar.jsx, src/components/video/LiveVideoFeed.jsx |
+| .21.4 | 06-09 | **드래그앤드롭 무반응 버그**: Dashboard window drop 핸들러가 Authorization 토큰 미첨부(401 조용히 실패) + testPlayState 미동기화. 토큰 첨부 + source/gate/playState 동기화로 버튼 경로와 동작 통일 | src/pages/Dashboard.jsx |
+| .21.5 | 06-09 | /test/active 폴링 2s→1s (자동시작 후 <video> 전환 가속) | src/hooks/useTestActiveMedia.js |
+
+### 📐 설계 결정
+
+- **두 첨부 경로 통일**: 버튼(TestModeBar)·드래그앤드롭(Dashboard) 모두 인증+자동START+상태동기화 동일 동작. 드롭 경로는 그간 토큰 누락으로 사실상 미동작이었음.
+- **로딩≠오류 구분**: 모델 로드 중 노란 배너/칩, 실패 시 빨간 재시도 칩 — 기존 console.warn 묵살 대체.
+
+### ➡️ 후속
+
+- 노션 일괄 동기화

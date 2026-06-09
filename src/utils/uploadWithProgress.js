@@ -14,9 +14,11 @@
  * @param {string} url
  * @param {FormData} formData
  * @param {(p: {loaded:number,total:number,percent:number,speedKbps:number,etaSeconds:number}) => void} onProgress
+ * @param {Record<string,string>} [headers] 추가 요청 헤더 (예: Authorization). FormData 의
+ *        Content-Type 은 브라우저가 boundary 와 함께 자동 설정하므로 지정하지 말 것.
  * @returns {Promise<{status:number, body:any}>}
  */
-export function uploadWithProgress(url, formData, onProgress) {
+export function uploadWithProgress(url, formData, onProgress, headers = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const startedAt = performance.now()
@@ -57,6 +59,10 @@ export function uploadWithProgress(url, formData, onProgress) {
     xhr.onabort = () => reject(new Error('Upload aborted'))
 
     xhr.open('POST', url)
+    // setRequestHeader 는 open() 이후 send() 이전에 호출해야 함.
+    for (const [k, v] of Object.entries(headers)) {
+      if (v != null) xhr.setRequestHeader(k, v)
+    }
     xhr.send(formData)
   })
 }
