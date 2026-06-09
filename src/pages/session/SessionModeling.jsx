@@ -70,17 +70,17 @@ export default function SessionModeling() {
     const setState = useSessionStore.setState
     setState({ modelStatus: 'modeling', modelProgress: 0, modelStage: '메타데이터 검증' })
     const stages = [
-      { at: 400,  stage: '모델 파일 검증', pct: 20 },
-      { at: 900,  stage: '메시 로드', pct: 55 },
-      { at: 1500, stage: '텍스처 매핑', pct: 85 },
-      { at: 2100, stage: '완료 처리', pct: 100 },
+      { at: 80,  stage: '모델 파일 검증', pct: 30 },
+      { at: 200, stage: '메시 로드', pct: 65 },
+      { at: 340, stage: '텍스처 매핑', pct: 90 },
+      { at: 460, stage: '완료 처리', pct: 100 },
     ]
     const timers = stages.map((s) =>
       setTimeout(() => setState({ modelProgress: s.pct, modelStage: s.stage }), s.at)
     )
     const done = setTimeout(
       () => setState({ modelStatus: 'ready', modelProgress: 100 }),
-      2500
+      560
     )
     return () => {
       timers.forEach(clearTimeout)
@@ -92,7 +92,7 @@ export default function SessionModeling() {
   // 완료 후 대시보드 자동 이동
   useEffect(() => {
     if (!isReady) return
-    const t = setTimeout(() => navigate('/dashboard'), 1800)
+    const t = setTimeout(() => navigate('/dashboard'), 500)
     return () => clearTimeout(t)
   }, [isReady, navigate])
 
