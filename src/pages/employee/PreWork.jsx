@@ -38,6 +38,7 @@ import {
 import FileDropzone from '../../components/session/FileDropzone.jsx'
 import BuildingMesh from '../../components/map3d/BuildingMesh.jsx'
 import usePreModelStore from '../../store/preModelStore.js'
+import { maybeDownsampleImage } from '../../utils/imageDownsample.js'
 import {
   preflightFloorplanFile,
   validateFloorplan,
@@ -117,9 +118,16 @@ export default function PreWork() {
     let imgH = null
 
     if (isImage) {
-      imageDataUrl = await readAsDataUrl(file)
-      // 이미지 크기 사전 추출 — 종횡비 보존 + 백엔드 응답 검증용
-      const dims = await readImageDimensions(imageDataUrl)
+      // 미리보기/3D 텍스처/저장(preModel·session)용 base64 는 다운샘플(1280px JPEG) 후 인코딩.
+      // 원본 5MB+ 를 그대로 base64 로 만들면 (1) 메인 스레드 블로킹 (2) base64 가 원본보다
+      // ~33% 더 커져 localStorage 쿼터(≈5MB) 초과 → persist 쓰기 실패/세션 유실 사고.
+      // 백엔드 벽체 추출(validateFloorplan/analyzeFloorplan)은 원본 `file` 을 그대로 쓰므로
+      // 정확도엔 영향 없음. 종횡비는 다운샘플이 균일 스케일이라 보존됨.
+      const previewFile = await maybeDownsampleImage(file)
+      imageDataUrl = await readAsDataUrl(previewFile)
+      // 치수는 *원본* 파일에서 직접 추출 — "원본 N×N px" 라벨 정확성 + 종횡비 보존.
+      // blob URL 로 읽어 base64 인코딩/블로킹 없이 가져온다.
+      const dims = await readImageDimensionsFromFile(file)
       imgW = dims.width
       imgH = dims.height
     }
@@ -607,11 +615,19 @@ function readAsDataUrl(file) {
   })
 }
 
-function readImageDimensions(dataUrl) {
+// 원본 File 의 픽셀 치수를 blob URL 로 추출 — base64 인코딩/메인스레드 블로킹 없음.
+function readImageDimensionsFromFile(file) {
   return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
     const img = new Image()
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
-    img.onerror = reject
-    img.src = dataUrl
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    }
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url)
+      reject(e)
+    }
+    img.src = url
   })
 }

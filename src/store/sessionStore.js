@@ -6,8 +6,8 @@
  *       - runMockModeling 유틸과 연동 — 실제 백엔드 연결 전 프로시저럴 시뮬레이션
  *
  * 제약:
- *   - uploadedImageDataUrl (L2 전용) 은 base64 라 localStorage 쿼터(≈5MB) 주의. 큰 파일은 자동 resize 하지 않으므로
- *     데모용 평면도 이미지는 1MB 미만 권장.
+ *   - uploadedImageDataUrl (L2 전용) 은 base64. 출처(PreWork)에서 1280px 로 다운샘플 후 인코딩하므로
+ *     5MB+ 원본도 ~200KB 로 줄어 localStorage 쿼터(≈5MB) 안에 들어온다. (다운샘플은 imageDownsample.js)
  *   - CAD 파일(L1) 은 dashboard 에서 실제 내용이 필요 없으므로 메타(name/size) 만 persist.
  */
 

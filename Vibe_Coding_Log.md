@@ -3111,3 +3111,10 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### ➡️ 후속
 
 - 노션 일괄 동기화
+
+## ⚡ 업로드 후 표시 지연 수정 (2026-06-09 18:3x)
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| PF.1 | 06-09 | 사전모델 가짜 모델링 연출 지연 단축: staged 애니 2.5s→0.56s, 완료후 대시보드 이동 1.8s→0.5s (총 ~4.3s→~1s). 실제 연산 아닌 순수 연출 | src/pages/session/SessionModeling.jsx |
+| PF.2 | 06-09 | L2 사전모델 base64 다운샘플(1280px) 후 인코딩 — 5MB+ 원본 base64(~6.7MB) 가 메인스레드 블로킹 + 양쪽 localStorage 쿼터 초과로 persist 실패하던 사고 해소(~200KB). 백엔드 벽추출은 원본 file 사용 → 정확도 무영향. 원본 치수는 blob URL 로 직접 추출(라벨/종횡비 정확) | src/pages/employee/PreWork.jsx, src/store/sessionStore.js |
