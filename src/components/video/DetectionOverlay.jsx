@@ -14,13 +14,30 @@
 import { useEffect, useRef, useState } from 'react'
 import useTestDetectionsStore from '../../store/testDetectionsStore.js'
 
-// 검출 카드를 그릴 시간 윈도우(초). 너무 좁으면 깜빡임, 너무 넓으면 여러 박스 겹침.
-const TIME_WINDOW_SEC = 0.4
+// ── 박스 hold+fade 윈도우 ──────────────────────────
+// 영상은 VLM 비용 통제로 ~4초마다만 키프레임 추론(test_stream._video_inference_loop).
+// 그 sparse 검출을 ±0.4초만 표시하면 깜빡여서 "실시간 검출" 느낌이 안 난다.
+// → 검출 시점 T 부터 HOLD_SEC 동안 박스를 유지(hold)하고 마지막 구간에서 페이드아웃해
+//   연속처럼 보이게 한다. VLM 호출 빈도는 그대로 → 추가 비용 0, 정확도 무영향(표시만 변경).
+// 드론이 움직이면 과거 박스가 약간 밀리므로 HOLD_SEC 는 무한정 늘리지 않고 ~1.8s 로 캡.
+const LEAD_SEC = 0.25      // 검출 시점 직전부터 살짝 미리 노출 (등장 부드럽게)
+const HOLD_SEC = 1.8       // 검출 시점 이후 유지 시간 (드리프트 방지 캡)
+const FADE_START_SEC = 1.0 // 이 시점부터 페이드아웃 시작
+const MIN_OPACITY = 0.0
 
 const SEVERITY_HEX = {
   HIGH: '#ef4444',
   MED:  '#f97316',
   LOW:  '#eab308',
+}
+
+// 검출 표시 나이(age = currentTime - 검출시점)에 따른 불투명도.
+// [-LEAD, FADE_START] 구간은 완전 노출, [FADE_START, HOLD] 구간은 선형 페이드아웃.
+function opacityForAge(age) {
+  if (age < -LEAD_SEC || age > HOLD_SEC) return 0
+  if (age <= FADE_START_SEC) return 1
+  const f = (age - FADE_START_SEC) / (HOLD_SEC - FADE_START_SEC)
+  return Math.max(MIN_OPACITY, 1 - f)
 }
 
 export default function DetectionOverlay({ videoRef, frameW, frameH }) {
@@ -35,9 +52,13 @@ export default function DetectionOverlay({ videoRef, frameW, frameH }) {
       const v = videoRef.current
       if (v && !v.paused && !v.ended) {
         const t = v.currentTime
-        const hits = detections.filter(
-          (d) => Math.abs(d.video_timestamp_sec - t) <= TIME_WINDOW_SEC,
-        )
+        // 검출 시점부터 HOLD_SEC 동안 유지 + 페이드. 각 검출에 _opacity 부여.
+        const hits = []
+        for (const d of detections) {
+          const age = t - d.video_timestamp_sec
+          const op = opacityForAge(age)
+          if (op > 0) hits.push({ ...d, _opacity: op })
+        }
         setActiveAt(hits)
       }
       raf = requestAnimationFrame(tick)
@@ -76,7 +97,7 @@ export default function DetectionOverlay({ videoRef, frameW, frameH }) {
         const labelH = fs + padY * 2
         const labelY = (y - labelH - 6 < 0) ? (y + h + 6) : (y - labelH - 6)
         return (
-          <g key={d.id}>
+          <g key={d.id} opacity={d._opacity ?? 1} style={{ transition: 'opacity 80ms linear' }}>
             {/* 반투명 마스크 */}
             <rect x={x} y={y} width={w} height={h} fill={color} fillOpacity="0.12" />
             {/* 메인 박스 */}
