@@ -3138,3 +3138,10 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### 📐 배포 검출 아키텍처 메모
 - 검출 모델(pipeline20 11/11)은 GCP VM(`drone-stream-api`, 34.64.124.77:8000)에만 있음. Fly엔 없음(dockerignore). GCP VM은 TEST_MODE_ENABLED=false·device:cpu 상태.
 - 배포 검출 = 프론트를 GCP VM(TLS)으로 라우팅 + GCP 테스트모드 ON 필요. (Fly↔GCP 통합 미완성분)
+
+## 🔧 GPU 제어 버튼 토큰 만료 수정 + dev 프록시 env화 (2026-06-10)
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| GP.1 | 06-10 | AdminGpu 가 raw axios + 정적 토큰(useMemo 클로저)을 써서 토큰 만료 시 "유효하지 않거나 만료된 토큰" 으로 영구 실패. authApi 의 인증 인스턴스(sessionStorage 최신 토큰 자동첨부 + 401 자동 refresh)를 apiClient 로 export 해 재사용 → 만료 자동 복구 | src/api/authApi.js, src/pages/employee/AdminGpu.jsx |
+| GP.2 | 06-10 | vite dev 프록시 타겟을 VITE_PROXY_TARGET env 로 — 로컬 프론트를 원격 검출 백엔드(GCP VM)로 무CORS/무mixed-content 라우팅 가능. 기본값 localhost:8000 유지(무회귀) | vite.config.js |
