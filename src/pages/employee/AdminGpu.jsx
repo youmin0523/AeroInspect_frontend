@@ -8,11 +8,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { ArrowLeft, Power, PowerOff, RefreshCw, Cpu, Clock, RotateCcw } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// 토큰 자동첨부 + 401 자동 refresh 가 걸린 공용 인증 클라이언트 — 토큰 만료에도 끊기지 않음.
+import { apiClient } from '../../api/authApi'
 
 const STATUS_BADGE = {
   RUNNING: 'bg-green-100 text-green-700 border-green-200',
@@ -44,7 +43,7 @@ const krwFromUsd = (usd) => Math.round(usd * USD_TO_KRW)
 
 export default function AdminGpu() {
   const navigate = useNavigate()
-  const { token, user, currentOrg } = useAuthStore()
+  const { user, currentOrg } = useAuthStore()
   // 1차 배포: 모든 직원이 status/start/stop 사용. 누적 리셋만 admin/owner/super.
   const canReset = !!user?.is_superadmin || (currentOrg && ['owner', 'admin'].includes(currentOrg.role))
 
@@ -55,20 +54,19 @@ export default function AdminGpu() {
   const [confirmAction, setConfirmAction] = useState(null)  // 'start' | 'stop' | 'reset' | null
   const [resetting, setResetting] = useState(false)
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
   const pollTimerRef = useRef(null)
 
   const fetchStatus = useCallback(async () => {
     try {
       setError('')
-      const res = await axios.get(`${API_BASE}/api/v1/admin/gpu/status`, { headers })
+      const res = await apiClient.get('/api/v1/admin/gpu/status')
       setStatus(res.data)
     } catch (err) {
       setError(err.response?.data?.detail || 'GPU 상태 조회에 실패했습니다.')
     } finally {
       setLoading(false)
     }
-  }, [headers])
+  }, [])
 
   useEffect(() => {
     fetchStatus()
@@ -80,7 +78,7 @@ export default function AdminGpu() {
     setBusy(true)
     setError('')
     try {
-      await axios.post(`${API_BASE}/api/v1/admin/gpu/start`, {}, { headers })
+      await apiClient.post('/api/v1/admin/gpu/start')
       await fetchStatus()
     } catch (err) {
       setError(err.response?.data?.detail || 'GPU 시작 요청에 실패했습니다.')
@@ -94,7 +92,7 @@ export default function AdminGpu() {
     setBusy(true)
     setError('')
     try {
-      await axios.post(`${API_BASE}/api/v1/admin/gpu/stop`, {}, { headers })
+      await apiClient.post('/api/v1/admin/gpu/stop')
       await fetchStatus()
     } catch (err) {
       setError(err.response?.data?.detail || 'GPU 정지 요청에 실패했습니다.')
@@ -133,7 +131,7 @@ export default function AdminGpu() {
     setResetting(true)
     setError('')
     try {
-      await axios.post(`${API_BASE}/api/v1/admin/gpu/usage/reset`, {}, { headers })
+      await apiClient.post('/api/v1/admin/gpu/usage/reset')
       await fetchStatus()
     } catch (err) {
       setError(err.response?.data?.detail || '누적 사용량 초기화에 실패했습니다.')

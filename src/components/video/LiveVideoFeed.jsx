@@ -56,7 +56,8 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const rawStreamUrl = urls[cameraMode] || STREAM_URLS.rgb
   // 상대경로(/api/v1/...)는 배포 환경에서 Vercel 도메인으로 새어 SPA HTML 이 돌아옴 →
   // <img> onError. API_BASE(백엔드 절대주소)를 부착해 MJPEG 스트림이 백엔드로 가게 함.
-  // 이미 절대 URL(VITE_STREAM_* 를 절대값으로 설정)이면 그대로 둠.
+  // 이미 절대 URL(VITE_STREAM_* 절대값)이면 그대로 둠. 검출 백엔드를 GCP VM 으로
+  // 분리(VITE_API_BASE_URL=GCP)해도 절대 URL 이어야 그쪽 MJPEG 를 받는다.
   const streamUrl = rawStreamUrl.startsWith('http')
     ? rawStreamUrl
     : `${API_BASE}${rawStreamUrl}`
