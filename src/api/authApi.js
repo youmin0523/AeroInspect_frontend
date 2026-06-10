@@ -26,6 +26,15 @@ API.interceptors.request.use((config) => {
   return config
 })
 
+// 인증 키 전체 제거 — localStorage(주 저장소) + sessionStorage(미러) 둘 다.
+// sessionStorage 만 지우면 다음 로드에서 localStorage→session hydrate 로 죽은 토큰이 되살아남.
+function clearAuthStorage() {
+  for (const key of ['access_token', 'refresh_token', 'user', 'current_org']) {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  }
+}
+
 // ── 401 응답 시 refresh_token 으로 자동 재발급 ──
 let isRefreshing = false
 let failedQueue = []
@@ -45,10 +54,7 @@ API.interceptors.response.use(
 
     // refresh 엔드포인트 자체가 401이면 로그아웃
     if (originalRequest.url?.includes('/auth/refresh')) {
-      sessionStorage.removeItem('access_token')
-      sessionStorage.removeItem('refresh_token')
-      sessionStorage.removeItem('user')
-      sessionStorage.removeItem('current_org')
+      clearAuthStorage()
       window.location.href = '/login'
       return Promise.reject(error)
     }
@@ -87,10 +93,7 @@ API.interceptors.response.use(
         return API(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        sessionStorage.removeItem('access_token')
-        sessionStorage.removeItem('refresh_token')
-        sessionStorage.removeItem('user')
-        sessionStorage.removeItem('current_org')
+        clearAuthStorage()
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {
@@ -101,6 +104,10 @@ API.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// 토큰 자동첨부(sessionStorage 최신 토큰) + 401 자동 refresh 가 걸린 공용 인증 클라이언트.
+// 다른 모듈이 동일한 만료/리프레시 처리를 재사용하도록 export (예: AdminGpu).
+export { API as apiClient }
 
 /** 일반 로그인 */
 export const login = (username, password) =>

@@ -17,6 +17,12 @@ export default defineConfig(async ({ mode }) => {
   const sentryOrg = env.SENTRY_ORG || env.VITE_SENTRY_ORG
   const sentryProject = env.SENTRY_PROJECT || env.VITE_SENTRY_PROJECT
 
+  // 개발 프록시 타겟 — 기본 로컬 백엔드(8000). VITE_PROXY_TARGET 으로 GCP VM 등 원격 백엔드
+  // (예: http://34.64.124.77:8000)를 가리키면 /api·/stream·/ws 가 그쪽으로 프록시되어
+  // CORS·mixed-content 없이 원격 검출 백엔드를 로컬에서 그대로 쓸 수 있다.
+  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8000'
+  const wsProxyTarget = proxyTarget.replace(/^http/, 'ws')
+
   const plugins = [react()]
   if (sentryAuthToken && sentryOrg && sentryProject) {
     // 동적 import — devDependency 미설치 환경(예: 사용자가 아직 npm install 안 했을 때) 보호
@@ -45,20 +51,21 @@ export default defineConfig(async ({ mode }) => {
   server: {
     port: 5173,
     proxy: {
-      // REST API 프록시
+      // REST API 프록시 (WS 업그레이드 포함 — /api/v1/ws 도 이 규칙으로 프록시)
       '/api': {
-        target: 'http://localhost:8000',
+        target: proxyTarget,
         changeOrigin: true,
+        ws: true,
       },
       // WebSocket 프록시
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: wsProxyTarget,
         ws: true,
         changeOrigin: true,
       },
       // 영상 스트림 프록시
       '/stream': {
-        target: 'http://localhost:8000',
+        target: proxyTarget,
         changeOrigin: true,
       },
       // 국세청 사업자 상태조회 API (odcloud.kr) CORS 우회용 프록시
