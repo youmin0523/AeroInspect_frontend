@@ -3162,3 +3162,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 |---|---|---|---|
 | PF.1 | 06-09 | 사전모델 가짜 모델링 연출 지연 단축: staged 애니 2.5s→0.56s, 완료후 대시보드 이동 1.8s→0.5s (총 ~4.3s→~1s). 실제 연산 아닌 순수 연출 | src/pages/session/SessionModeling.jsx |
 | PF.2 | 06-09 | L2 사전모델 base64 다운샘플(1280px) 후 인코딩 — 5MB+ 원본 base64(~6.7MB) 가 메인스레드 블로킹 + 양쪽 localStorage 쿼터 초과로 persist 실패하던 사고 해소(~200KB). 백엔드 벽추출은 원본 file 사용 → 정확도 무영향. 원본 치수는 blob URL 로 직접 추출(라벨/종횡비 정확) | src/pages/employee/PreWork.jsx, src/store/sessionStore.js |
+
+## 🎥 영상 검출 오버레이 박스 hold+fade (2026-06-10)
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| VD.1 | 06-10 | 영상 직접재생 검출 박스를 ±0.4s 표시 → 검출시점 T부터 HOLD(1.8s) 유지+페이드아웃으로 변경. VLM 키프레임 주기(4s)는 그대로라 추가 비용 0·정확도 무영향, 표시만 연속처럼. 드리프트 방지 위해 hold 1.8s 캡 + FADE_START 1.0s | src/components/video/DetectionOverlay.jsx |
+
+### 📐 메모 (영상 압축/호환 조사)
+- DroneShot mp4 3종 = **HEVC(H.265) ~3Mbps, 2분, 50MB** (2개 720×1280, 1개 1920×1080). 이미 효율 압축 상태 → 해상도 유지 재인코딩은 크기 절감 0/음수(H.264 변환 시 동일~증가). 업로드 153s 병목은 파일이 아니라 ~2.5Mbps 업링크.
+- HEVC 는 Chrome/Windows `<video>` 미지원 가능성 → 재생 호환 위해 H.264 변환이 (압축 아닌) 필요할 수 있음. 사용자 실측 대기 중.
