@@ -13,7 +13,10 @@
  *     - 'mission.failed'     → 에러 표시
  */
 
-import axios from 'axios'
+// 공용 인증 클라이언트 사용 — Bearer 토큰 + X-Organization-Id 자동 첨부,
+// 401 시 refresh 자동 재발급, baseURL(VITE_API_BASE_URL) 적용.
+// (이전: 원시 axios + 상대경로 → 운영 배포 시 인증헤더 없음 + 프론트 origin 오타격)
+import { apiClient as axios } from './authApi'
 
 const BASE = '/api/v1/missions'
 

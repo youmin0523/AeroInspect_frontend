@@ -3145,3 +3145,28 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 |---|---|---|---|
 | GP.1 | 06-10 | AdminGpu 가 raw axios + 정적 토큰(useMemo 클로저)을 써서 토큰 만료 시 "유효하지 않거나 만료된 토큰" 으로 영구 실패. authApi 의 인증 인스턴스(sessionStorage 최신 토큰 자동첨부 + 401 자동 refresh)를 apiClient 로 export 해 재사용 → 만료 자동 복구 | src/api/authApi.js, src/pages/employee/AdminGpu.jsx |
 | GP.2 | 06-10 | vite dev 프록시 타겟을 VITE_PROXY_TARGET env 로 — 로컬 프론트를 원격 검출 백엔드(GCP VM)로 무CORS/무mixed-content 라우팅 가능. 기본값 localhost:8000 유지(무회귀) | vite.config.js |
+
+---
+
+## 2026-06-11 — 상업 준비도 점검: 블로커/보안/성능 (frontend)
+
+전체 코드감사 + 빌드·lint 실측 후 P0 블로커·P1 보안·P3 성능 수정.
+
+**P0 블로커**
+- **미션(L3 자율비행) 운영 불통 수정**: `missionApi` 가 원시 axios+상대경로 → 공용 인증 클라이언트(`apiClient`)로 교체. 운영 배포 시 인증헤더 누락 + 프론트 origin 오타격 해소. (missionApi.js)
+- **로그아웃 서버 폐기**: `authStore.logout` 이 토큰 캡처 후 `POST /auth/logout`(denylist) 백그라운드 호출 → 로컬만 비우던 문제 해소. (authStore.js, authApi.js)
+- **인증 가드**: `/dashboard`·`/session/*` 에 `isAuthenticated` 검사 추가(비로그인 직접진입 차단). (ProtectedSessionLayout.jsx, SessionLayout.jsx)
+- **404 폴백 라우트**: 미정의 경로 백지화면 → NotFound 페이지. (NotFound.jsx, App.jsx)
+
+**P1 보안/안정**
+- **토큰 회전 영속화**: refresh 갱신값을 localStorage(주 저장소)+session 둘 다 기록 → 새로고침 시 구 토큰 hydrate 로 회전 무력화되던 버그 해소. (authApi.js)
+- **OAuth state CSRF**: google/kakao/naver 모두 state 발급·저장, 콜백에서 검증·소비. (authApi.js, OAuthCallback.jsx)
+- **report API 인증/베이스URL**: 스트림 fetch 에 절대 URL+인증헤더, preview 는 apiClient 사용. (reportApi.js)
+- **ESLint v9 flat config 신설**: 그동안 설정 부재로 lint 미작동 → 복구. r3f/한글따옴표 노이즈 규칙 정리. 0 errors. (eslint.config.js, package.json)
+- **조건부 훅 버그 수정**: ContactModal 의 useState 가 early-return 아래 선언 → 훅 순서 깨짐 해소. (ContactModal.jsx)
+
+**P3 성능**
+- **번들 코드 스플리팅**: 단일 5,045KB(gzip 1,483KB) → 벤더 manualChunks + 무거운 라우트 React.lazy. 초기 JS 약 265KB entry + 167KB react 로 축소(three/pdf/excel/charts 는 해당 라우트에서만 로드). 초기 페이로드 ~70% 감소. (vite.config.js, App.jsx)
+- 미션 종료 더블클릭 가드. (MissionControl.jsx)
+
+검증: `npm run lint`(0 errors), `vite build` 성공.

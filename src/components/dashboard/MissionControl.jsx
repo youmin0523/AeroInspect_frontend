@@ -52,11 +52,14 @@ export default function MissionControl({ onEnd }) {
     return (
       <button
         type="button"
-        onClick={() => {
+        // 더블클릭 가드 — 빠른 연타로 endMission/onEnd 가 2회 발화되어 중복 네비게이트되는 것 방지.
+        onClick={(e) => {
+          if (e.currentTarget.disabled) return
+          e.currentTarget.disabled = true
           endMission()
           onEnd?.()
         }}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg hover:bg-red-400 transition"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg hover:bg-red-400 transition disabled:opacity-60"
       >
         <Square size={12} /> End Mission
         <span className="font-mono tabular-nums text-white/90 ml-1">{formatElapsed(elapsed)}</span>
