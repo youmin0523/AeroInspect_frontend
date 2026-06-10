@@ -53,7 +53,9 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   const urls = isTestMode ? TEST_STREAM_URLS : STREAM_URLS
-  const streamUrl = urls[cameraMode] || STREAM_URLS.rgb
+  // API_BASE 접두 필수 — 상대경로면 프론트 origin(Vercel)으로 새어 SPA HTML 반환 → <img> onError.
+  // 검출 백엔드를 GCP VM 으로 분리(VITE_API_BASE_URL=GCP)해도 절대 URL 이어야 그쪽 MJPEG 를 받는다.
+  const streamUrl = `${API_BASE}${urls[cameraMode] || STREAM_URLS.rgb}`
 
   // 하자 선택 시 → 해당 시점 프레임 표시. testMode/real 양쪽에서 동일 패턴.
   // R31 시점: real 경로는 영상 수신기 도착 후 활성. 그때 backend가 동일한 defect endpoint

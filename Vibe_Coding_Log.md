@@ -3128,3 +3128,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 ### 📐 메모 (영상 압축/호환 조사)
 - DroneShot mp4 3종 = **HEVC(H.265) ~3Mbps, 2분, 50MB** (2개 720×1280, 1개 1920×1080). 이미 효율 압축 상태 → 해상도 유지 재인코딩은 크기 절감 0/음수(H.264 변환 시 동일~증가). 업로드 153s 병목은 파일이 아니라 ~2.5Mbps 업링크.
 - HEVC 는 Chrome/Windows `<video>` 미지원 가능성 → 재생 호환 위해 H.264 변환이 (압축 아닌) 필요할 수 있음. 사용자 실측 대기 중.
+
+## 🔧 검출 백엔드 분리 대비: 스트림 URL 절대화 (2026-06-10)
+
+| ID | 시각 | 작업 | 파일 |
+|---|---|---|---|
+| VD.2 | 06-10 | LiveVideoFeed 테스트모드 MJPEG `streamUrl` 에 API_BASE 접두 — 상대경로라 프론트 origin(Vercel)으로 새어 SPA HTML 반환되던 것 수정. 검출 백엔드를 GCP VM(VITE_API_BASE_URL=GCP)으로 분리해도 절대 URL 이어야 그쪽 MJPEG 수신 가능 | src/components/video/LiveVideoFeed.jsx |
+
+### 📐 배포 검출 아키텍처 메모
+- 검출 모델(pipeline20 11/11)은 GCP VM(`drone-stream-api`, 34.64.124.77:8000)에만 있음. Fly엔 없음(dockerignore). GCP VM은 TEST_MODE_ENABLED=false·device:cpu 상태.
+- 배포 검출 = 프론트를 GCP VM(TLS)으로 라우팅 + GCP 테스트모드 ON 필요. (Fly↔GCP 통합 미완성분)
