@@ -3170,3 +3170,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 미션 종료 더블클릭 가드. (MissionControl.jsx)
 
 검증: `npm run lint`(0 errors), `vite build` 성공.
+
+---
+
+## 2026-06-11 — UX 토스트 + 이미지 최적화 (frontend)
+
+- **전역 토스트 시스템 신설**(외부 라이브러리 없이 zustand): toastStore + ToastContainer, App 루트 마운트. 무음 실패 제거. (toastStore.js, ToastContainer.jsx, App.jsx)
+- **에러 토스트 연동**: Dashboard 업로드(>=400/네트워크 예외)·녹화 시작/중지 실패가 조용히 묻히던 경로에 사용자 알림 + 진행상태 정리. (Dashboard.jsx)
+- **이미지 최적화**: src/assets 60개 리사이즈(최대 1920px)+재압축 제자리 덮어쓰기 → 79.0MB→24.4MB(-69%). HERO_02 9.0MB→0.9MB(-90%). 파일명/포맷 유지로 import 무변경. 재현 스크립트 추가(`node scripts/optimize-images.mjs`). (scripts/optimize-images.mjs, src/assets/*)
+
+검증: vite build 성공, npm run lint 0 errors.

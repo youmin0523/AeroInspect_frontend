@@ -40,6 +40,7 @@ import DronesPanel from '../components/dashboard/DronesPanel.jsx'
 import TestModeBar from '../components/dashboard/TestModeBar.jsx'
 import useDroneStore, { DRONE_CAMERA_MAP } from '../store/droneStore.js'
 import useSessionStore from '../store/sessionStore.js'
+import { toast } from '../store/toastStore.js'
 import { perfStart, perfEnd } from '../utils/perfTimer'
 import { maybeDownsampleAll } from '../utils/imageDownsample'
 import { uploadWithProgress } from '../utils/uploadWithProgress'
@@ -230,12 +231,18 @@ export default function Dashboard() {
         })
         if (uploadRes.status >= 400) {
           perfEnd('upload-total', { ok: false })
+          toast.error('파일 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.')
           return
         }
 
         // 3) 자동 START — 모델이 아직 로드 중이어도 backend 가 비동기로 처리, 영상은 즉시 흐름
         await fetch(`${API_BASE}/api/v1/stream/test/start`, { method: 'POST' }).catch(() => {})
         perfEnd('upload-total', { ok: true })
+      } catch (err) {
+        // 네트워크/다운샘플 등 예외 — 사용자에게 알리고 진행 상태 정리(무음 실패 방지).
+        console.error('[Upload]', err)
+        perfEnd('upload-total', { ok: false })
+        toast.error('업로드 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.')
       } finally {
         setDropUploading(false)
         setUploadProgress(null)
@@ -280,14 +287,17 @@ export default function Dashboard() {
           method: 'POST',
         })
         if (res.ok) setIsRecording(true)
+        else toast.error('녹화를 시작하지 못했습니다.')
       } else {
         const res = await fetch(`${API_BASE}/stream/record/stop`, {
           method: 'POST',
         })
         if (res.ok) setIsRecording(false)
+        else toast.error('녹화를 중지하지 못했습니다.')
       }
     } catch (err) {
       console.error('[Recording]', err)
+      toast.error('녹화 처리 중 오류가 발생했습니다.')
     }
   }, [isRecording])
 

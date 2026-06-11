@@ -37,6 +37,7 @@ import ChatRealtimeListener from './components/chat/ChatRealtimeListener.jsx'
 import GlobalFloatingChatbot from './components/chatbot/GlobalFloatingChatbot.jsx'
 import PerfTimerWidget from './components/dev/PerfTimerWidget.jsx'
 import SentryErrorBoundary from './components/common/SentryErrorBoundary.jsx'
+import ToastContainer from './components/common/ToastContainer.jsx'
 import useChatStore from './store/chatStore.js'
 
 /** employee 경로에서만 Floating Chat Button 표시 */
@@ -147,6 +148,7 @@ export default function App() {
         <GlobalFloatingChat />
         <GlobalFloatingChatbot />
         <PerfTimerWidget />
+        <ToastContainer />
         <Suspense fallback={<RouteFallback />}>
         <Routes>
         {/* 공개 라우트 */}
