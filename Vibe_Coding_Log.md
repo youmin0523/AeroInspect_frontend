@@ -3180,3 +3180,12 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **이미지 최적화**: src/assets 60개 리사이즈(최대 1920px)+재압축 제자리 덮어쓰기 → 79.0MB→24.4MB(-69%). HERO_02 9.0MB→0.9MB(-90%). 파일명/포맷 유지로 import 무변경. 재현 스크립트 추가(`node scripts/optimize-images.mjs`). (scripts/optimize-images.mjs, src/assets/*)
 
 검증: vite build 성공, npm run lint 0 errors.
+
+---
+
+## 2026-06-11 — 이미지 WebP 전환 (frontend)
+
+- hero/cases/features 폴더(import.meta.glob 으로 로드 → 확장자 자유)의 PNG 59개를 WebP(quality 82)로 변환 + 원본 png 삭제. glob 패턴이 webp 를 자동 포함하므로 코드 변경 0.
+- 결과: 해당 폴더 20.4MB→4.4MB(-79%). 빌드 산출 이미지 총량 ~80MB→5.2MB.
+- logo/·cta/ (정적 import·투명도 민감)은 최적화 PNG 그대로 유지.
+- 재현 스크립트 추가(scripts/convert-to-webp.mjs). 검증: vite build 성공, lint 0 errors.
