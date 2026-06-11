@@ -19,6 +19,7 @@ import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
 import ThermalOverlay from './ThermalOverlay.jsx'
 import DetectionOverlay from './DetectionOverlay.jsx'
+import useVideoDetectionReveal from '../../hooks/useVideoDetectionReveal.js'
 import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
@@ -75,6 +76,12 @@ export default function LiveVideoFeed({ fill = false, mode }) {
 
   const defectFrameUrl = (() => {
     if (!selectedDefect?.id) return null
+    // 검출의 소스 채널과 이 피드의 채널이 일치할 때만 인스펙션 뷰를 띄운다.
+    // RGB 영상 검출은 RGB 피드(Drone1)에, thermal 영상 검출은 thermal 피드(Drone2)에만.
+    // (과거: RGB 영상 검출인데 thermal PIP 가 같은 selectedDefect 로 검출뷰가 돼 bbox 가
+    //  열화상에 뜨던 문제. 드론 스왑으로 채널이 바뀌어도 채널 기준으로 따라간다.)
+    const srcChannel = selectedDefect.source_channel || 'rgb'
+    if (srcChannel !== channel) return null
     if (isTestMode) {
       return `${API_BASE}/api/v1/stream/test/defect/${selectedDefect.id}/${channel}?mode=${backendRenderMode}`
     }
@@ -230,6 +237,9 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     </div>
   ) : null
   const videoRef = useRef(null)
+  // 영상 직접재생 모드: 카드 목록을 재생 시간에 게이팅(박스와 동기). 다른 피드 인스턴스(thermal PIP 등)
+  // 는 isDirectVideoMode=false 라 no-op. enabled 가 false면 훅 내부에서 즉시 반환.
+  useVideoDetectionReveal(videoRef, isDirectVideoMode && fill)
   const directVideoUrl = isDirectVideoMode
     ? `${API_BASE}/api/v1/stream/test/upload/file/${encodeURIComponent(active.filename)}`
     : null

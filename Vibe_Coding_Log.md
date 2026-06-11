@@ -3244,3 +3244,11 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **증상**: TEST MODE 진입/재접속마다 우측 "하자 탐지 목록"에 과거 검출 100건이 떠 있음(START 전엔 비어 있어야 정상).
 - **원인**: useDefects 가 테스트 모드 여부와 무관하게 마운트 시 `GET /api/v1/defects` 로 DB 의 과거 하자를 무조건 로드. isTestMode 가 localStorage 에 persist 되어 새로고침에도 반복.
 - **수정**: ① useDefects — isTestMode 면 REST 로드 건너뛰고 목록 비움(START 후 WS `defect.new` 로만 채움). ② sessionStore.enterTestMode — 진입 시 defectStore.reset() 호출로 잔여 카드/큐/게이트 즉시 제거. (useDefects.js, sessionStore.js)
+
+---
+
+## 2026-06-11 — 영상 검출 동기화 2버그: 목록 게이팅 + 인스펙션뷰 채널 일치 (frontend)
+
+- **목록이 영상보다 앞서감**: backend 영상 추론(_video_inference_loop)이 실시간보다 빠르게 끝나 모든 검출을 즉시 WS broadcast → 하자 카드 목록이 영상 재생보다 한참 앞서 쌓였다. 영상 검출(video_timestamp_sec 보유)을 testDetectionsStore(타임라인)에만 적재하고, `useVideoDetectionReveal`(신설)이 `<video>.currentTime` 이 검출 시점에 도달할 때 defectStore.addDefect 로 노출 → 박스(DetectionOverlay)와 카드가 함께 등장. (useWebSocket.js, useVideoDetectionReveal.js, LiveVideoFeed.jsx)
+- **RGB 영상인데 thermal 에 bbox**: 하자 선택 시 전역 selectedDefect 를 모든 피드가 읽어 thermal PIP(Drone2)도 검출 인스펙션뷰로 전환됐다. defectFrameUrl 을 `selectedDefect.source_channel === 피드 channel` 일치 시에만 생성 → RGB 검출은 RGB 피드(Drone1), thermal 검출은 thermal 피드(Drone2)에만. 드론 스왑 시에도 채널 기준. (LiveVideoFeed.jsx; backend 가 source_channel broadcast, 없으면 'rgb' 폴백)
+- 검증: vite build OK, eslint OK.
