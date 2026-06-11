@@ -36,9 +36,13 @@ const STATIC_CHANNELS = ['defects', 'telemetry', 'camera', 'thermal']
 function pushDefect(data) {
   const sess = useSessionStore.getState()
   const defectStore = useDefectStore.getState()
-  // 영상 직접재생 모드의 detection(video_timestamp_sec 포함)은 timeline store 에도 적재 — DetectionOverlay 동기화용.
+  // 영상 직접재생 모드의 detection(video_timestamp_sec 포함)은 timeline store 에만 적재.
+  // backend 영상 추론은 실시간보다 빠르게 끝나 모든 검출을 즉시 broadcast 하므로, 여기서
+  // defectStore 에 바로 넣으면 카드 목록이 영상보다 한참 앞서간다. 목록 노출은 재생 시간이
+  // 검출 시점에 도달할 때 useVideoDetectionReveal 이 수행 → 박스(DetectionOverlay)와 동기화.
   if (typeof data?.video_timestamp_sec === 'number') {
     useTestDetectionsStore.getState().ingest(data)
+    return
   }
   if (sess.isTestMode && !defectStore.testMediaReady) {
     defectStore.queueTestDefect(data)
