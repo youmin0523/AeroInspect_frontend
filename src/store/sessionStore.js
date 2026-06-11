@@ -14,6 +14,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { runMockModeling } from '../utils/mockModeling.js'
+import useDefectStore from './defectStore.js'
 
 // 클로저에 러너 cancel 함수 보관 (store state 밖 — persist 되면 안 되는 런타임 참조)
 let cancelRunner = null
@@ -212,6 +213,9 @@ const useSessionStore = create(
       enterTestMode: () => {
         cancelRunner?.()
         cancelRunner = null
+        // 과거 DB 하자가 화면에 남지 않도록 진입 시 하자 스토어를 비운다.
+        // (START 전 빈 목록 보장 — 이후 검출은 WS "defect.new" 로만 채워짐)
+        useDefectStore.getState().reset()
         set({
           isTestMode: true,
           // 진입 즉시 '파일 첨부' 버튼이 보이도록 기본 소스를 upload 로 둔다

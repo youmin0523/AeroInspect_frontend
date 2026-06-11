@@ -3238,3 +3238,9 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - useDefects 가 하자 목록 로드 실패를 console.error 로만 처리하던 것 → 토스트 알림 추가(무음 빈 패널 방지). 기존 cancelled 가드는 유지(전환 레이스 안전). (useDefects.js)
 - 점검 결과: ReportsList·SiteManagement 등 주요 목록은 이미 loading/empty 상태를 적절히 처리 중 — 에이전트의 누락 지적은 대부분 과장으로 확인.
+
+## 2026-06-11 — 테스트 모드 하자 목록 비우기 (frontend)
+
+- **증상**: TEST MODE 진입/재접속마다 우측 "하자 탐지 목록"에 과거 검출 100건이 떠 있음(START 전엔 비어 있어야 정상).
+- **원인**: useDefects 가 테스트 모드 여부와 무관하게 마운트 시 `GET /api/v1/defects` 로 DB 의 과거 하자를 무조건 로드. isTestMode 가 localStorage 에 persist 되어 새로고침에도 반복.
+- **수정**: ① useDefects — isTestMode 면 REST 로드 건너뛰고 목록 비움(START 후 WS `defect.new` 로만 채움). ② sessionStore.enterTestMode — 진입 시 defectStore.reset() 호출로 잔여 카드/큐/게이트 즉시 제거. (useDefects.js, sessionStore.js)

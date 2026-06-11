@@ -8,6 +8,7 @@
 
 import { useEffect } from 'react'
 import useDefectStore from '../store/defectStore.js'
+import useSessionStore from '../store/sessionStore.js'
 import { fetchDefects } from '../api/defectsApi.js'
 import { toast } from '../store/toastStore.js'
 
@@ -15,8 +16,17 @@ export default function useDefects() {
   const setDefects = useDefectStore((s) => s.setDefects)
   const setLoading = useDefectStore((s) => s.setLoading)
   const filters = useDefectStore((s) => s.filters)
+  const isTestMode = useSessionStore((s) => s.isTestMode)
 
   useEffect(() => {
+    // 테스트 모드: 과거 DB 하자를 불러오지 않는다 (START 전 빈 목록 유지).
+    // 실시간 검출은 START 후 WebSocket "defect.new" 로만 채워진다.
+    if (isTestMode) {
+      setDefects([])
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
 
     const load = async () => {
@@ -41,5 +51,5 @@ export default function useDefects() {
 
     load()
     return () => { cancelled = true }
-  }, [filters.severity, filters.area, filters.categoryCode, setDefects, setLoading])
+  }, [isTestMode, filters.severity, filters.area, filters.categoryCode, setDefects, setLoading])
 }
