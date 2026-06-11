@@ -3238,3 +3238,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - useDefects 가 하자 목록 로드 실패를 console.error 로만 처리하던 것 → 토스트 알림 추가(무음 빈 패널 방지). 기존 cancelled 가드는 유지(전환 레이스 안전). (useDefects.js)
 - 점검 결과: ReportsList·SiteManagement 등 주요 목록은 이미 loading/empty 상태를 적절히 처리 중 — 에이전트의 누락 지적은 대부분 과장으로 확인.
+
+---
+
+## 2026-06-11 — [union/WIP] 자율비행 프론트 컴포넌트 보존 (통합 repo → 배포본)
+
+안전 단계적 union — `union` 브랜치에만 추가, 운영 배포 X.
+- 통합 repo 자율비행 UI 보존: AutonomousMissionControl, map3d/{CoverageHeatmapLayer,DiscrepancyOverlay,MissionPathLayer,PointCloudLayer}, store/missionStore.
+- FSM missionApi 는 기존(구 autonomous-scan) missionApi 와 충돌하므로 missionFsmApi.js 로 별도 보존.
+- ⚠️ WIP: 통합 repo 에서도 미배선(백엔드 /mission 라우터 미등록 → 404). build/lint 무결성만 확보. 실제 동작은 (1)백엔드 FSM 완성·DB 마이그레이션 (2)Dashboard 배선 (3)missionApi 일원화 후 가능.
+- 검증: vite build OK, lint 0 errors.
