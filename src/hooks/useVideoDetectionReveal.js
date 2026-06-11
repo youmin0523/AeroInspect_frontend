@@ -40,7 +40,9 @@ export default function useVideoDetectionReveal(videoRef, enabled) {
           if (d.video_timestamp_sec > t + REVEAL_LEAD_SEC) break
           if (revealedRef.current.has(d.id)) continue
           revealedRef.current.add(d.id)
-          defectStore.addDefect(d) // id 중복은 addDefect 가 차단(다중 인스턴스/재크로스 안전)
+          // autoSelect=false: 목록에만 추가(선택 미변경) — 카드클릭→seek 오발동 방지.
+          defectStore.addDefect(d, false) // id 중복은 addDefect 가 차단
+
         }
       }
       raf = requestAnimationFrame(tick)

@@ -3252,3 +3252,14 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **목록이 영상보다 앞서감**: backend 영상 추론(_video_inference_loop)이 실시간보다 빠르게 끝나 모든 검출을 즉시 WS broadcast → 하자 카드 목록이 영상 재생보다 한참 앞서 쌓였다. 영상 검출(video_timestamp_sec 보유)을 testDetectionsStore(타임라인)에만 적재하고, `useVideoDetectionReveal`(신설)이 `<video>.currentTime` 이 검출 시점에 도달할 때 defectStore.addDefect 로 노출 → 박스(DetectionOverlay)와 카드가 함께 등장. (useWebSocket.js, useVideoDetectionReveal.js, LiveVideoFeed.jsx)
 - **RGB 영상인데 thermal 에 bbox**: 하자 선택 시 전역 selectedDefect 를 모든 피드가 읽어 thermal PIP(Drone2)도 검출 인스펙션뷰로 전환됐다. defectFrameUrl 을 `selectedDefect.source_channel === 피드 channel` 일치 시에만 생성 → RGB 검출은 RGB 피드(Drone1), thermal 검출은 thermal 피드(Drone2)에만. 드론 스왑 시에도 채널 기준. (LiveVideoFeed.jsx; backend 가 source_channel broadcast, 없으면 'rgb' 폴백)
 - 검증: vite build OK, eslint OK.
+
+---
+
+## 2026-06-11 — 하자 카드 클릭 → 검출 시점 영상 리뷰 + 일시정지 박스 (frontend)
+
+- **배경**: VLM(gemini-3.1-pro) 추론이 실시간 재생보다 느려(키프레임당 ~15s) 첫 재생 중엔 라이브 bbox 오버레이가 어렵다(검출이 그 순간 지난 뒤 도착). → 카드 클릭으로 그 순간을 리뷰하는 방식이 정답.
+- **카드 클릭 → 영상 seek+pause**: selectedDefect 의 video_timestamp_sec 로 `<video>` 를 이동·일시정지 → "검출된 그 당시" 화면을 박스와 함께 표시. (LiveVideoFeed.jsx)
+- **일시정지 중 박스 노출**: DetectionOverlay 가 paused 에서도 currentTime 기준 박스 렌더(기존엔 재생 중만). 선택된 카드의 박스는 키프레임 snap 오차 흡수 위해 ±2.5s 창에서 보장 노출. (DetectionOverlay.jsx)
+- **오발동 방지**: reveal 로 추가되는 카드는 `addDefect(d, false)` 로 자동선택 비활성 → 재생 중 매 검출마다 seek+pause 되는 사고 차단. (defectStore.js, useVideoDetectionReveal.js)
+- 라이브 오버레이는 재생을 다시 돌리면(검출이 이미 store 에 있어) 동기화됨.
+- 검증: vite build OK.

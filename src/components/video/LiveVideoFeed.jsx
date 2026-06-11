@@ -46,6 +46,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const storeCameraMode = useDroneStore((s) => s.cameraMode)
   const isTestMode = useSessionStore((s) => s.isTestMode)
   const testPlayState = useSessionStore((s) => s.testPlayState)
+  const setTestPlayState = useSessionStore((s) => s.setTestPlayState)
   const selectedDefect = useDefectStore((s) => s.selectedDefect)
   const markTestMediaReady = useDefectStore((s) => s.markTestMediaReady)
   // mode prop 이 주어지면 store 무시 — 멀티 피드(메인 + PIP 다른 드론) 렌더링 용도.
@@ -255,6 +256,21 @@ export default function LiveVideoFeed({ fill = false, mode }) {
       try { v.currentTime = 0 } catch { /* not seekable yet */ }
     }
   }, [testPlayState, isDirectVideoMode, directVideoUrl])
+
+  // 하자 카드 클릭(selectedDefect 변경) 시 영상을 그 검출 시점으로 이동 + 일시정지 →
+  // 박스와 함께 "검출된 그 당시" 화면을 보여준다. (VLM 추론이 실시간보다 느려 첫 재생 중
+  // 라이브 오버레이가 어려우므로, 카드 클릭이 검출 리뷰의 기본 동작.)
+  // reveal 로 추가되는 카드는 autoSelect=false 라 selectedDefect 를 안 바꾸므로 여기 오발동 없음.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !isDirectVideoMode) return
+    const ts = selectedDefect?.video_timestamp_sec
+    if (typeof ts !== 'number' || !isFinite(ts)) return
+    const seek = () => { try { v.currentTime = ts; v.pause() } catch { /* not seekable yet */ } }
+    if (v.readyState >= 1) seek()
+    else v.addEventListener('loadedmetadata', seek, { once: true })
+    setTestPlayState('paused')
+  }, [selectedDefect?.id, selectedDefect?.video_timestamp_sec, isDirectVideoMode, setTestPlayState])
 
   if (isDirectVideoMode && fill) {
     return (
