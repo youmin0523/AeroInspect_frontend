@@ -3189,3 +3189,8 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 결과: 해당 폴더 20.4MB→4.4MB(-79%). 빌드 산출 이미지 총량 ~80MB→5.2MB.
 - logo/·cta/ (정적 import·투명도 민감)은 최적화 PNG 그대로 유지.
 - 재현 스크립트 추가(scripts/convert-to-webp.mjs). 검증: vite build 성공, lint 0 errors.
+
+## 2026-06-11 — UX: 하자 로드 실패 토스트 (frontend)
+
+- useDefects 가 하자 목록 로드 실패를 console.error 로만 처리하던 것 → 토스트 알림 추가(무음 빈 패널 방지). 기존 cancelled 가드는 유지(전환 레이스 안전). (useDefects.js)
+- 점검 결과: ReportsList·SiteManagement 등 주요 목록은 이미 loading/empty 상태를 적절히 처리 중 — 에이전트의 누락 지적은 대부분 과장으로 확인.

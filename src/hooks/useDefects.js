@@ -9,6 +9,7 @@
 import { useEffect } from 'react'
 import useDefectStore from '../store/defectStore.js'
 import { fetchDefects } from '../api/defectsApi.js'
+import { toast } from '../store/toastStore.js'
 
 export default function useDefects() {
   const setDefects = useDefectStore((s) => s.setDefects)
@@ -32,6 +33,7 @@ export default function useDefects() {
         }
       } catch (err) {
         console.error('[useDefects] 로드 실패:', err)
+        if (!cancelled) toast.error('하자 목록을 불러오지 못했습니다.')
       } finally {
         if (!cancelled) setLoading(false)
       }
