@@ -80,6 +80,20 @@ export default defineConfig(async ({ mode }) => {
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // 단일 5MB 번들 → 벤더별 청크 분리. 브라우저 병렬 다운로드 + 배포 간 캐시 적중률 상승.
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['@react-pdf/renderer'],
+          'vendor-excel': ['exceljs'],
+          'vendor-markdown': ['react-markdown'],
+        },
+      },
+    },
   },
   })
 })

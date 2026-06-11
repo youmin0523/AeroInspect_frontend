@@ -23,6 +23,9 @@ const INITIAL_FORM = {
 export default function ContactModal({ isOpen, onClose }) {
   const [form, setForm] = useState(INITIAL_FORM)
   const [verifyState, setVerifyState] = useState({ status: 'idle', message: '' })
+  // 주의: 모든 훅은 조건부 return(`if (!isOpen) return null`) 보다 위에 있어야 한다.
+  // (이전: submitting 이 early-return 아래에 선언되어 렌더마다 훅 순서가 바뀜 → 상태 깨짐)
+  const [submitting, setSubmitting] = useState(false)
   const dialogRef = useRef(null)
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -93,8 +96,6 @@ export default function ContactModal({ isOpen, onClose }) {
       setVerifyState({ status: 'error', message: `❌ 조회 실패: ${serverMsg}` })
     }
   }
-
-  const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()

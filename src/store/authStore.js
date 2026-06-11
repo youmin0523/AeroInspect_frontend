@@ -2,16 +2,66 @@
  * authStore.js
  * 역할: 인증 상태 관리 (Zustand)
  *       - JWT 토큰 저장/삭제 — **localStorage** 가 primary, **sessionStorage** 는 미러(write-through)
- *         · 탭/창을 닫고 다시 열어도 로그인 유지 (사용자 UX 요청 R-v1.1.04)
- *         · 기존 api/* 인터셉터 17곳은 sessionStorage.getItem 그대로 호출 → 미러 덕에 호환
- *         · 보안 안전 장치: JWT 자체 expire(120분), 명시 logout 시 둘 다 정리
+ *         · 탭/창을 닫고 다시 열어도 로그인 유지 — 단, "영구"가 아니라 refresh 토큰 수명(기본 24h)
+ *           안에 재접속했을 때만. 회전(rotation)으로 사용할 때마다 24h 갱신 → 유휴 윈도우.
+ *           넘기면 자동 로그아웃 (사용자 UX 요청 R-v1.1.04, 영구→유휴 윈도우로 정정)
+ *         · 기존 api/* 인터셉터들은 sessionStorage.getItem 그대로 호출 → 미러 덕에 호환
+ *         · 보안 안전 장치: 진입 시 refresh 토큰 exp 검증 → 만료면 즉시 폐기(로그인 상태로 안 보임),
+ *           access expire(120분), 명시 logout 시 둘 다 정리
  *       - 현재 로그인 사용자 정보 보관
  *       - 로그인/로그아웃 액션
  */
 
 import { create } from 'zustand'
+import { logoutApi } from '../api/authApi'
 
 const AUTH_KEYS = ['access_token', 'refresh_token', 'user', 'current_org']
+
+/**
+ * JWT payload 의 exp(초) → ms epoch. 디코드 실패/exp 없으면 null.
+ * 서명 검증은 안 함(서버 몫) — 만료 여부만 클라이언트에서 빠르게 판단하기 위함.
+ */
+function getTokenExpiryMs(token) {
+  if (!token || typeof token !== 'string') return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  try {
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      atob(b64)
+        .split('')
+        .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+        .join('')
+    )
+    const exp = JSON.parse(json).exp
+    return typeof exp === 'number' ? exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+/** 토큰이 존재하고 exp 가 아직 미래면 true (= 살아있음). */
+function isTokenLive(token) {
+  const expMs = getTokenExpiryMs(token)
+  return expMs !== null && expMs > Date.now()
+}
+
+/**
+ * 만료 세션 정리: refresh 토큰이 없거나 만료됐으면 모든 인증 키 제거.
+ * → 죽은 토큰이 session 으로 hydrate 되거나 랜딩이 "로그인됨"으로 보이는 것 차단.
+ * refresh 가 살아있으면 access 가 만료됐어도 인터셉터가 자동 재발급하므로 세션 유지로 본다.
+ */
+function purgeExpiredSession() {
+  if (typeof window === 'undefined') return
+  const refresh =
+    localStorage.getItem('refresh_token') ?? sessionStorage.getItem('refresh_token')
+  if (!isTokenLive(refresh)) {
+    for (const key of AUTH_KEYS) {
+      localStorage.removeItem(key)
+      sessionStorage.removeItem(key)
+    }
+  }
+}
 
 /**
  * localStorage → sessionStorage 미러 (앱 진입 시 1회 호출).
@@ -28,7 +78,9 @@ function hydrateSessionFromLocal() {
   }
 }
 
-// 모듈 import 시점에 즉시 hydration 실행 → 새 탭/새로고침에서도 즉시 인증 유효.
+// 진입 시: ① 만료 세션 먼저 폐기 → ② 살아있는 토큰만 session 으로 미러.
+// 순서 중요 — 폐기를 먼저 해야 죽은 토큰이 session 으로 복사되지 않음.
+purgeExpiredSession()
 hydrateSessionFromLocal()
 
 /** localStorage + sessionStorage 둘 다 set (write-through) */
@@ -52,6 +104,9 @@ const storedUserRaw = getAuthValue('user')
 const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null
 const storedToken = getAuthValue('access_token')
 const storedOrgRaw = getAuthValue('current_org')
+// 세션 유효 판정: refresh 토큰이 살아있으면 로그인 상태(access 만료 시 인터셉터가 재발급).
+// purgeExpiredSession() 이후라 만료 세션이면 이미 비어있음 → false.
+const sessionLive = isTokenLive(getAuthValue('refresh_token'))
 
 /* ── Role Selector Helpers ─────────────────────────────────
  *
@@ -94,7 +149,7 @@ const useAuthStore = create((set, get) => ({
   // ── 상태 ──────────────────────────────────
   token: storedToken || null,
   user: storedUser,
-  isAuthenticated: !!storedToken,
+  isAuthenticated: sessionLive,
 
   // 조직 관련 (user.organizations 에서 파생)
   organizations: storedUser?.organizations || [],
@@ -125,7 +180,15 @@ const useAuthStore = create((set, get) => ({
   },
 
   // ── 로그아웃 ──────────────────────────────
+  // 서버 토큰 폐기(denylist) 요청을 백그라운드로 보낸 뒤 로컬 정리.
+  // 토큰을 비우기 전에 캡처해 전달하고, 네트워크 실패와 무관하게 로컬 세션은 즉시 정리한다.
   logout: () => {
+    const refresh = getAuthValue('refresh_token')
+    const access = getAuthValue('access_token')
+    if (refresh) {
+      // fire-and-forget — 서버 폐기 실패해도 로컬 로그아웃은 보장
+      logoutApi(refresh, access).catch(() => {})
+    }
     AUTH_KEYS.forEach(removeBoth)
     set({ token: null, user: null, isAuthenticated: false, organizations: [], currentOrg: null })
   },

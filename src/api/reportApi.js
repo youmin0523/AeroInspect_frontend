@@ -9,9 +9,22 @@
  *   청크 단위로 텍스트를 수신 → onChunk 콜백으로 전달
  */
 
-import axios from 'axios'
+// 비스트리밍 호출은 공용 인증 클라이언트 사용 (Bearer + X-Organization-Id + baseURL).
+import { apiClient } from './authApi'
 
 const BASE = '/api/v1/report'
+
+// fetch 기반 스트리밍용 — 운영 배포(다른 origin) 대비 절대 URL + 인증 헤더 수동 구성.
+const API_ORIGIN = import.meta.env.VITE_API_BASE_URL || ''
+
+function authHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  const token = sessionStorage.getItem('access_token')
+  if (token) headers.Authorization = `Bearer ${token}`
+  const org = JSON.parse(sessionStorage.getItem('current_org') || 'null')
+  if (org?.id) headers['X-Organization-Id'] = org.id
+  return headers
+}
 
 /**
  * LLM 보고서 스트리밍 생성.
@@ -25,9 +38,9 @@ const BASE = '/api/v1/report'
  */
 export async function generateReportStream(request, onChunk, onDone, onError) {
   try {
-    const response = await fetch(`${BASE}/generate`, {
+    const response = await fetch(`${API_ORIGIN}${BASE}/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -57,7 +70,7 @@ export async function generateReportStream(request, onChunk, onDone, onError) {
  * @returns {Object} { content, metadata }
  */
 export async function generateReportPreview(request) {
-  const { data } = await axios.post(`${BASE}/preview`, request)
+  const { data } = await apiClient.post(`${BASE}/preview`, request)
   return data
 }
 
