@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { oauthLogin } from '../api/authApi'
+import { oauthLogin, consumeOAuthState } from '../api/authApi'
 import useAuthStore from '../store/authStore'
 
 export default function OAuthCallback() {
@@ -29,6 +29,13 @@ export default function OAuthCallback() {
     const code = searchParams.get('code')
     if (!code) {
       setError('인가 코드가 없습니다.')
+      return
+    }
+
+    // CSRF 방지 — 인가 요청 시 저장한 state 와 콜백 state 가 일치해야 진행.
+    const state = searchParams.get('state')
+    if (!consumeOAuthState(provider, state)) {
+      setError('보안 검증에 실패했습니다(state 불일치). 다시 로그인해 주세요.')
       return
     }
 

@@ -8,9 +8,16 @@
 
 import { Navigate, Outlet } from 'react-router-dom'
 import useSessionStore from '../../store/sessionStore.js'
+import useAuthStore from '../../store/authStore.js'
 
 export default function ProtectedSessionLayout() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const modelStatus = useSessionStore((s) => s.modelStatus)
+
+  // 인증 우선 — 비로그인 사용자가 세션 스토어만 채운 채 대시보드 직접 진입하는 것 차단.
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
 
   if (modelStatus !== 'ready') {
     return <Navigate to="/session/setup" replace />

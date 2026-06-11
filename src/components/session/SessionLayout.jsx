@@ -11,6 +11,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import logoDark from '../../assets/logo/logo_transparent-removebg-preview.png'
 import useSessionStore from '../../store/sessionStore.js'
+import useAuthStore from '../../store/authStore.js'
 
 const STEPS = [
   { key: 'setup',    path: '/session/setup',    label: '현장 정보',  n: 1 },
@@ -20,7 +21,13 @@ const STEPS = [
 
 export default function SessionLayout() {
   const location = useLocation()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { siteName, operatorName, level } = useSessionStore()
+
+  // 인증 가드 — 세션 워크플로우(현장 점검)는 로그인 사용자 전용.
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
 
   // 간이 가드: level 페이지는 setup 완료 필요, modeling 페이지는 level 선택 필요
   if (location.pathname === '/session/level' && (!siteName || !operatorName)) {

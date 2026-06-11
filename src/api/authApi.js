@@ -82,10 +82,14 @@ API.interceptors.response.use(
           refresh_token: refreshToken,
         })
         const newToken = data.access_token
+        // localStorage(주 저장소) + sessionStorage(미러) 둘 다 갱신해야 한다.
+        // session 만 갱신하면 새로고침 시 authStore 가 localStorage 의 '구' 토큰을 hydrate →
+        // 회전(rotation) 무력화 + 서버가 폐기한 구 refresh 로 재요청 시 강제 로그아웃.
+        localStorage.setItem('access_token', newToken)
         sessionStorage.setItem('access_token', newToken)
         // R-v1.1.17: refresh token rotation — 서버가 새 refresh_token도 발급
-        // 응답에 refresh_token이 있으면 localStorage 덮어쓰기 (회전 적용)
         if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token)
           sessionStorage.setItem('refresh_token', data.refresh_token)
         }
         originalRequest.headers.Authorization = `Bearer ${newToken}`
@@ -157,9 +161,39 @@ export const deleteProfileImage = () =>
 export const updateMe = (payload) =>
   API.patch('/api/v1/auth/me', payload)
 
+/**
+ * 로그아웃 — 서버에 토큰 폐기(denylist) 요청.
+ * refresh 는 body, access 는 Authorization 헤더로 명시 전달
+ * (로컬 스토리지를 비우기 직전에 호출되므로 인터셉터에 의존하지 않고 토큰을 직접 넘긴다).
+ */
+export const logoutApi = (refreshToken, accessToken) =>
+  API.post(
+    '/api/v1/auth/logout',
+    { refresh_token: refreshToken },
+    accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined
+  )
+
 
 // ── OAuth 인가 URL 빌더 ─────────────────────
 const REDIRECT_BASE = window.location.origin
+
+// OAuth CSRF 방지용 state 저장 키 (provider 별). 콜백에서 동일 키로 검증.
+const oauthStateKey = (provider) => `oauth_state_${provider}`
+
+/** provider 별 state 생성·저장 후 반환 (CSRF 방지) */
+export function issueOAuthState(provider) {
+  const state = crypto.randomUUID()
+  sessionStorage.setItem(oauthStateKey(provider), state)
+  return state
+}
+
+/** 콜백에서 state 검증 — 일치하면 true, 일회용이므로 검증 후 제거 */
+export function consumeOAuthState(provider, received) {
+  const expected = sessionStorage.getItem(oauthStateKey(provider))
+  sessionStorage.removeItem(oauthStateKey(provider))
+  // 저장된 state 가 없으면(직접 진입 등) 통과시키지 않음.
+  return !!expected && !!received && expected === received
+}
 
 export const getGoogleAuthUrl = () => {
   const params = new URLSearchParams({
@@ -168,6 +202,7 @@ export const getGoogleAuthUrl = () => {
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
+    state: issueOAuthState('google'),
     // 구글 세션이 살아있어도 계정 선택 화면 강제 (다른 계정 전환 허용)
     prompt: 'select_account consent',
   })
@@ -179,6 +214,7 @@ export const getKakaoAuthUrl = () => {
     client_id: import.meta.env.VITE_KAKAO_JS_KEY,
     redirect_uri: `${REDIRECT_BASE}/auth/kakao/callback`,
     response_type: 'code',
+    state: issueOAuthState('kakao'),
     // 카카오 자동 로그인 무시, ID/PW 재입력 강제
     prompt: 'login',
   })
@@ -186,13 +222,11 @@ export const getKakaoAuthUrl = () => {
 }
 
 export const getNaverAuthUrl = () => {
-  const state = crypto.randomUUID()
-  sessionStorage.setItem('naver_oauth_state', state)
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_NAVER_CLIENT_ID || '',
     redirect_uri: `${REDIRECT_BASE}/auth/naver/callback`,
     response_type: 'code',
-    state,
+    state: issueOAuthState('naver'),
     // 네이버 세션이 살아있어도 ID/PW 재입력을 강제 (다른 계정 전환 허용)
     auth_type: 'reprompt',
   })
