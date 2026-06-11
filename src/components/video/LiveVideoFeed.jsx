@@ -20,6 +20,7 @@ import useDefectStore from '../../store/defectStore.js'
 import ThermalOverlay from './ThermalOverlay.jsx'
 import DetectionOverlay from './DetectionOverlay.jsx'
 import useVideoDetectionReveal from '../../hooks/useVideoDetectionReveal.js'
+import useVideoAnalysisGate from '../../hooks/useVideoAnalysisGate.js'
 import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
@@ -238,9 +239,14 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     </div>
   ) : null
   const videoRef = useRef(null)
+  const [videoDuration, setVideoDuration] = useState(0)
   // 영상 직접재생 모드: 카드 목록을 재생 시간에 게이팅(박스와 동기). 다른 피드 인스턴스(thermal PIP 등)
   // 는 isDirectVideoMode=false 라 no-op. enabled 가 false면 훅 내부에서 즉시 반환.
   useVideoDetectionReveal(videoRef, isDirectVideoMode && fill)
+  // 분석 먼저 → 동기화 재생: 분석이 충분히 진행될 때까지 재생 보류, 준비되면 재생하며 박스 동기.
+  const analysisGateEnabled = isDirectVideoMode && fill && testPlayState !== 'stopped'
+  const { ready: analysisReady, progress: analysisProgress } =
+    useVideoAnalysisGate(analysisGateEnabled, videoDuration)
   const directVideoUrl = isDirectVideoMode
     ? `${API_BASE}/api/v1/stream/test/upload/file/${encodeURIComponent(active.filename)}`
     : null
@@ -250,12 +256,14 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     if (testPlayState === 'paused') {
       v.pause()
     } else if (testPlayState === 'playing') {
-      v.play().catch(() => {})
+      // 분석 먼저: 준비 전엔 0초에 멈춰 대기, 준비되면 재생 → 박스/목록이 재생과 동기.
+      if (analysisReady) v.play().catch(() => {})
+      else v.pause()
     } else if (testPlayState === 'stopped') {
       v.pause()
       try { v.currentTime = 0 } catch { /* not seekable yet */ }
     }
-  }, [testPlayState, isDirectVideoMode, directVideoUrl])
+  }, [testPlayState, isDirectVideoMode, directVideoUrl, analysisReady])
 
   // 하자 카드 클릭(selectedDefect 변경) 시 영상을 그 검출 시점으로 이동 + 일시정지 →
   // 박스와 함께 "검출된 그 당시" 화면을 보여준다. (VLM 추론이 실시간보다 느려 첫 재생 중
@@ -280,12 +288,12 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           key={directVideoUrl}
           src={directVideoUrl}
           className={imgClass}
-          autoPlay
           muted
           playsInline
           loop={false}
           controls={false}
-          onLoadedMetadata={() => {
+          onLoadedMetadata={(e) => {
+            setVideoDuration(e.currentTarget.duration || 0)
             if (isTestMode && cameraMode === 'rgb') {
               markTestMediaReady()
             }
@@ -296,6 +304,17 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           frameW={active?.frame_w}
           frameH={active?.frame_h}
         />
+        {/* 분석 먼저 → 동기화 재생: 분석 진행 중엔 진행률 오버레이, 완료되면 재생 시작 */}
+        {analysisGateEnabled && !analysisReady && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-none">
+            <div className="w-10 h-10 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="text-cyan-100 text-sm font-mono tracking-wide">AI 하자 분석 중…</div>
+            <div className="mt-2 w-48 h-1.5 rounded-full bg-slate-700 overflow-hidden">
+              <div className="h-full bg-cyan-400 transition-all duration-300" style={{ width: `${Math.round(analysisProgress * 100)}%` }} />
+            </div>
+            <div className="mt-1 text-[11px] text-cyan-300/80 font-mono">{Math.round(analysisProgress * 100)}%</div>
+          </div>
+        )}
         {modelLoadingBanner}
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900/80 border border-cyan-500/40">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />

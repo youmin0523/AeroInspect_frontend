@@ -3263,3 +3263,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **오발동 방지**: reveal 로 추가되는 카드는 `addDefect(d, false)` 로 자동선택 비활성 → 재생 중 매 검출마다 seek+pause 되는 사고 차단. (defectStore.js, useVideoDetectionReveal.js)
 - 라이브 오버레이는 재생을 다시 돌리면(검출이 이미 store 에 있어) 동기화됨.
 - 검증: vite build OK.
+
+---
+
+## 2026-06-11 — A: 분석 먼저 → 동기화 재생 (frontend)
+
+- **배경**: VLM 추론이 실시간보다 느려 즉시 재생 시 박스가 안 뜸. 분석을 먼저 충분히 돌린 뒤 재생하면, 재생 중 그 시점마다 박스+카드가 함께 떠 '실시간 검출'처럼 보임.
+- **useVideoAnalysisGate(신설)**: testDetectionsStore 의 maxTs/duration 커버리지 + stall + 하드폴백(90s)로 '분석 준비됨' 판정(백엔드 완료신호 없이 안전). 진행률 반환.
+- **LiveVideoFeed**: `<video>` autoPlay 제거, 재생을 analysisReady 로 게이팅(준비 전 0초 대기), 'AI 하자 분석 중 %' 오버레이. onLoadedMetadata 로 duration 캡처.
+- 효과: 재생 시작과 동시에 오버레이(DetectionOverlay)+목록(reveal)이 처음부터 동기 → 이슈1(목록 앞서감)·B(라이브 박스)를 함께 해소.
+- 검증: vite build OK.
