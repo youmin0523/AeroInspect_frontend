@@ -55,12 +55,16 @@ const useDefectStore = create((set, get) => ({
    *     사용자가 마지막 30초 내 수동 선택한 카드가 없으면 selectedDefect 도 함께 갱신.
    *     검수 도중 새 하자가 들어와도 흐름이 끊기지 않도록 TTL 보호.
    */
-  addDefect: (defect) =>
+  addDefect: (defect, autoSelect = true) =>
     set((state) => {
       if (defect?.id && state.defects.some((d) => d.id === defect.id)) {
         return state
       }
       const updated = [defect, ...state.defects].slice(0, MAX_DEFECTS)
+
+      // autoSelect=false: 영상 reveal 등 — 목록에만 추가하고 selectedDefect 는 건드리지 않는다.
+      // (자동선택이 일어나면 카드클릭→영상 seek 동작이 매 검출마다 오발동해 재생이 멈춤)
+      if (!autoSelect) return { defects: updated }
 
       // 자동 선택 판정: 마지막 수동 선택이 30초 이상 지났거나 아예 없을 때만
       const now = Date.now()

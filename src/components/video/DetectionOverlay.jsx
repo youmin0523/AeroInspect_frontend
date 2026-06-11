@@ -11,8 +11,13 @@
  *   - LiveVideoFeed 의 detection 모드 SVG 와 디자인 통일성(코너 마커, glow)
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import useTestDetectionsStore from '../../store/testDetectionsStore.js'
+import useDefectStore from '../../store/defectStore.js'
+
+// 일시정지 중 '선택된 카드'의 박스를 보장 노출하는 창(초). 영상 seek 가 키프레임에 snap 돼
+// 검출 시점과 약간 어긋나도 그 박스가 보이도록 넉넉히.
+const SELECTED_PAUSE_WINDOW = 2.5
 
 // ── 박스 hold+fade 윈도우 ──────────────────────────
 // 영상은 VLM 비용 통제로 ~4초마다만 키프레임 추론(test_stream._video_inference_loop).
@@ -42,6 +47,7 @@ function opacityForAge(age) {
 
 export default function DetectionOverlay({ videoRef, frameW, frameH }) {
   const detections = useTestDetectionsStore((s) => s.detections)
+  const selectedId = useDefectStore((s) => s.selectedDefect?.id)
   const [activeAt, setActiveAt] = useState([])
 
   // ── currentTime 폴링 (rAF) ────────────────────────
@@ -50,13 +56,20 @@ export default function DetectionOverlay({ videoRef, frameW, frameH }) {
     let raf = 0
     const tick = () => {
       const v = videoRef.current
-      if (v && !v.paused && !v.ended) {
+      // 일시정지 상태에서도 박스를 그린다 — 카드 클릭으로 검출 시점에 seek+pause 했을 때
+      // 그 순간의 박스를 보여주기 위함(VLM 추론이 느려 라이브 오버레이가 어려운 것을 보완).
+      if (v && !v.ended) {
         const t = v.currentTime
+        const paused = v.paused
         // 검출 시점부터 HOLD_SEC 동안 유지 + 페이드. 각 검출에 _opacity 부여.
         const hits = []
         for (const d of detections) {
           const age = t - d.video_timestamp_sec
-          const op = opacityForAge(age)
+          let op = opacityForAge(age)
+          // 일시정지 + 선택된 카드의 박스는 키프레임 snap 오차를 흡수해 넉넉한 창에서 보장 노출.
+          if (paused && selectedId && d.id === selectedId && Math.abs(age) <= SELECTED_PAUSE_WINDOW) {
+            op = 1
+          }
           if (op > 0) hits.push({ ...d, _opacity: op })
         }
         setActiveAt(hits)
@@ -65,7 +78,7 @@ export default function DetectionOverlay({ videoRef, frameW, frameH }) {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [detections, videoRef])
+  }, [detections, videoRef, selectedId])
 
   // frame 크기를 모르면 viewBox 매핑 불가 — 첫 detection 의 frame_w/h 폴백
   const vbW = frameW || activeAt[0]?.frame_w
