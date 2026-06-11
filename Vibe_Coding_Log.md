@@ -3273,3 +3273,11 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - **LiveVideoFeed**: `<video>` autoPlay 제거, 재생을 analysisReady 로 게이팅(준비 전 0초 대기), 'AI 하자 분석 중 %' 오버레이. onLoadedMetadata 로 duration 캡처.
 - 효과: 재생 시작과 동시에 오버레이(DetectionOverlay)+목록(reveal)이 처음부터 동기 → 이슈1(목록 앞서감)·B(라이브 박스)를 함께 해소.
 - 검증: vite build OK.
+
+---
+
+## 2026-06-11 — FP/FN 4-4: 카드에 근거 감사로그 표시 (frontend)
+
+- DefectCard 에 등급(확정/검토/참고) 칩 + AI 판단근거(reasoning) 표시. 등급 칩 hover 시 ONNX/VLM 신뢰도·합치 표기. 분쟁 증거 + 점검자 판단 보조.
+- backend 가 grade/reasoning 미전송 시 미표시(graceful) — backend 배포 전에도 안전.
+- 검증: vite build OK.

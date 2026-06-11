@@ -149,9 +149,28 @@ export default function DefectCard({ defect }) {
             {defect.defect_type}
           </p>
 
-          {/* 하단: 신뢰도 + 온도 + 시각 */}
+          {/* 하단: 신뢰도 + 등급 + 온도 + 시각 */}
           <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 flex-wrap">
             <span>신뢰도 {(defect.confidence * 100).toFixed(0)}%</span>
+            {/* 근거 감사로그(4-4): 등급 — AI 합치 여부. 분쟁/검수 판단 보조. */}
+            {defect.grade && (
+              <span
+                title={[
+                  defect.onnx_conf != null && `ONNX ${(defect.onnx_conf * 100).toFixed(0)}%`,
+                  defect.vlm_conf != null && `VLM ${(defect.vlm_conf * 100).toFixed(0)}%`,
+                  defect.agreement && `합치: ${defect.agreement}`,
+                ].filter(Boolean).join(' · ') || undefined}
+                className={
+                  defect.grade === 'CONFIRMED'
+                    ? 'px-1 rounded bg-emerald-500/15 text-emerald-300'
+                    : defect.grade === 'REVIEW'
+                    ? 'px-1 rounded bg-amber-500/15 text-amber-300'
+                    : 'px-1 rounded bg-slate-500/15 text-slate-400'
+                }
+              >
+                {defect.grade === 'CONFIRMED' ? '확정' : defect.grade === 'REVIEW' ? '검토' : '참고'}
+              </span>
+            )}
             {defect.thermal_max && (
               <span>🌡️ {defect.thermal_max.toFixed(1)}°C</span>
             )}
@@ -171,6 +190,16 @@ export default function DefectCard({ defect }) {
               <ModelBadge modelId={defect.detection_model_id} />
               <GpsBadge lat={defect.gps_lat} lon={defect.gps_lon} />
             </div>
+          )}
+
+          {/* 근거 감사로그(4-4): AI 판단 근거 — 분쟁 증거. 있을 때만, 전체는 hover(title)로. */}
+          {defect.reasoning && (
+            <p
+              title={defect.reasoning}
+              className="mt-1.5 text-[10px] leading-snug text-slate-400/90 italic line-clamp-2"
+            >
+              “{defect.reasoning}”
+            </p>
           )}
         </div>
       </div>
