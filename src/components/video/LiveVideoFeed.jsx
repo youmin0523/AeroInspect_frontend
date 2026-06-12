@@ -246,7 +246,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   // 분석 먼저 → 동기화 재생: 분석이 충분히 진행될 때까지 재생 보류, 준비되면 재생하며 박스 동기.
   const analysisGateEnabled = isDirectVideoMode && fill && testPlayState !== 'stopped'
   const { ready: analysisReady, progress: analysisProgress } =
-    useVideoAnalysisGate(analysisGateEnabled, videoDuration)
+    useVideoAnalysisGate(analysisGateEnabled, videoDuration, active?.analysis_complete)
   const directVideoUrl = isDirectVideoMode
     ? `${API_BASE}/api/v1/stream/test/upload/file/${encodeURIComponent(active.filename)}`
     : null
@@ -280,6 +280,15 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     setTestPlayState('paused')
   }, [selectedDefect?.id, selectedDefect?.video_timestamp_sec, isDirectVideoMode, setTestPlayState])
 
+  // 영상 종료 → 다음 업로드 영상으로 순차 전환(여러 영상 업로드 시). 백엔드가 active_media 를
+  // 다음 영상으로 갱신 → /test/active 폴링이 받아 directVideoUrl 변경 → 새 영상 자동 로드/재생.
+  const handleVideoEnded = () => {
+    if (!isDirectVideoMode) return
+    const token = sessionStorage.getItem('access_token')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    fetch(`${API_BASE}/api/v1/stream/test/video/next`, { method: 'POST', headers }).catch(() => {})
+  }
+
   if (isDirectVideoMode && fill) {
     return (
       <div className={containerClass} style={containerStyle}>
@@ -292,6 +301,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           playsInline
           loop={false}
           controls={false}
+          onEnded={handleVideoEnded}
           onLoadedMetadata={(e) => {
             setVideoDuration(e.currentTarget.duration || 0)
             if (isTestMode && cameraMode === 'rgb') {
