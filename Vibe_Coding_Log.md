@@ -3288,3 +3288,12 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - DefectCard 에 temporal_count≥2 시 "반복 N회" 배지(청록) — 여러 키프레임 반복 검출 = 신뢰 높음. 단발(노이즈 가능)과 구분. backend 시간적 합의(4-3)와 연동, 미수신 시 미표시(graceful).
 - 검증: vite build OK.
+
+---
+
+## 2026-06-12 — 양식 보고서: 직접다운로드 → 미리보기 흐름 (frontend)
+
+- 사용자 요구: Excel 바로 다운로드 말고 '미리보기 → Excel/PDF 변환' 흐름.
+- 기존에 이미 TemplateExportButton → ExcelPreviewModal(점검개요·상세표·사진첨부 미리보기 → Excel/PDF) + utils/templateExport.js(양식 로드+addImage) 완비돼 있었음.
+- ReportPanel: 새로 넣었던 '엑셀 직접 다운로드' 버튼을 제거하고 '📊 양식 내보내기' → ExcelPreviewModal 오픈으로 변경. testDetections(업로드 검출)+defectStore 합쳐 id 중복제거 + trade/위치 보강해 report 구성(업로드 검출도 보고서에 포함).
+- reportsApi.generateExcelReport(백엔드 /report/excel 호출 헬퍼)는 남겨둠(서버측 생성 옵션).

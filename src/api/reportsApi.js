@@ -50,6 +50,34 @@ export async function deleteReport(id) {
   return { ok: true }
 }
 
+/**
+ * POST /api/v1/report/excel — 검출 하자(이미지 포함) → 제출용 엑셀 양식 다운로드
+ * defects: [{category_code, defect_type, severity, confidence, image_crop}]
+ * meta: {site_name, unit, inspector, inspect_area}
+ */
+export async function generateExcelReport(defects, meta = {}) {
+  const response = await API.post(
+    '/api/v1/report/excel',
+    { defects, ...meta },
+    { responseType: 'blob' },
+  )
+  // 파일명 추출 (RFC5987 UTF-8'' 우선, 없으면 기본)
+  const cd = response.headers['content-disposition'] || ''
+  let filename = `하자점검_결과보고서.xlsx`
+  const star = cd.match(/filename\*\s*=\s*UTF-8''([^;]+)/i)
+  if (star) {
+    try { filename = decodeURIComponent(star[1].trim()) } catch { /* keep default */ }
+  }
+  const url = window.URL.createObjectURL(response.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 /** GET /api/v1/report/{id}/download — 마크다운 파일 다운로드 */
 export async function downloadReport(id) {
   const response = await API.get(`/api/v1/report/${id}/download`, {
