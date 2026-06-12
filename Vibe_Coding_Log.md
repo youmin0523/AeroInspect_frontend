@@ -3281,3 +3281,10 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - DefectCard 에 등급(확정/검토/참고) 칩 + AI 판단근거(reasoning) 표시. 등급 칩 hover 시 ONNX/VLM 신뢰도·합치 표기. 분쟁 증거 + 점검자 판단 보조.
 - backend 가 grade/reasoning 미전송 시 미표시(graceful) — backend 배포 전에도 안전.
 - 검증: vite build OK.
+
+---
+
+## 2026-06-12 — 하자 카드에 반복검출 신뢰 배지 (frontend)
+
+- DefectCard 에 temporal_count≥2 시 "반복 N회" 배지(청록) — 여러 키프레임 반복 검출 = 신뢰 높음. 단발(노이즈 가능)과 구분. backend 시간적 합의(4-3)와 연동, 미수신 시 미표시(graceful).
+- 검증: vite build OK.

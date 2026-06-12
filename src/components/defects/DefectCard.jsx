@@ -152,6 +152,15 @@ export default function DefectCard({ defect }) {
           {/* 하단: 신뢰도 + 등급 + 온도 + 시각 */}
           <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 flex-wrap">
             <span>신뢰도 {(defect.confidence * 100).toFixed(0)}%</span>
+            {/* 시간적 합의(4-3): 여러 키프레임 반복 검출 = 신뢰. 단발은 표기 안 함. */}
+            {defect.temporal_count >= 2 && (
+              <span
+                title={`${defect.temporal_count}개 키프레임에서 반복 검출 — 신뢰도 높음`}
+                className="px-1 rounded bg-cyan-500/15 text-cyan-300"
+              >
+                반복 {defect.temporal_count}회
+              </span>
+            )}
             {/* 근거 감사로그(4-4): 등급 — AI 합치 여부. 분쟁/검수 판단 보조. */}
             {defect.grade && (
               <span
