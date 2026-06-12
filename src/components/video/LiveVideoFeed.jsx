@@ -19,6 +19,7 @@ import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
 import ThermalOverlay from './ThermalOverlay.jsx'
 import DetectionOverlay from './DetectionOverlay.jsx'
+import ReportReadyCTA from './ReportReadyCTA.jsx'
 import useVideoDetectionReveal from '../../hooks/useVideoDetectionReveal.js'
 import useVideoAnalysisGate from '../../hooks/useVideoAnalysisGate.js'
 import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
@@ -314,6 +315,8 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           frameW={active?.frame_w}
           frameH={active?.frame_h}
         />
+        {/* 분석 완료 → "보고서 준비됨" 원클릭 CTA (분석→보고서 자동화 진입점) */}
+        <ReportReadyCTA show={!!active?.analysis_complete} />
         {/* 분석 먼저 → 동기화 재생: 분석 진행 중엔 진행률 오버레이, 완료되면 재생 시작 */}
         {analysisGateEnabled && !analysisReady && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-none">

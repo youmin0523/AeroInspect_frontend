@@ -3305,3 +3305,10 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - testDetectionsStore.ingest: dedup 을 (id) → (id+video_timestamp_sec) 로. 시간적 합의가 같은 하자에 id 재사용 → id 만 비교하면 지속 하자(균열)의 2번째 키프레임부터 버려져 박스 사라짐. 각 시점 검출을 모두 타임라인에 보존 → 연속 오버레이.
 - useVideoAnalysisGate: 백엔드 analysis_complete 신호 1순위로 재작성. 완전분석 후 재생 → 첫 재생부터 모든 박스 일관. 휴리스틱(85%/90초)은 안전 폴백만(영상길이 비례 hardMax).
 - LiveVideoFeed: <video> onEnded → POST /test/video/next(다중영상 순차 재생) + active.analysis_complete 를 게이트에 전달.
+
+---
+
+## 2026-06-12 (3) — 분석 완료 → 보고서 원클릭 (frontend)
+
+- ReportReadyCTA: active.analysis_complete && 검출 존재 시 영상 위 "보고서 준비됨" 배너. 클릭 → testDetections+defectStore 합쳐 id 중복제거+trade/위치 보강 → ExcelPreviewModal(미리보기→Excel/PDF). 분석→보고서 자동화 진입점.
+- LiveVideoFeed direct-video 블록에 mount.
