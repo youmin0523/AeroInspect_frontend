@@ -9,13 +9,43 @@
 
 import { useState } from 'react'
 import { generateReportStream } from '../../api/reportApi.js'
+import useDefectStore from '../../store/defectStore.js'
+import useTestDetectionsStore from '../../store/testDetectionsStore.js'
+import { suggestTradeFromCode, inferInitialLocation } from '../../constants/trades.js'
 import ReportExport from './ReportExport.jsx'
+import ExcelPreviewModal from './ExcelPreviewModal.jsx'
 
 export default function ReportPanel() {
   const [content, setContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [provider, setProvider] = useState('claude')
   const [error, setError] = useState(null)
+  const [previewReport, setPreviewReport] = useState(null)   // 양식 미리보기 모달용
+
+  // 양식 내보내기 — 바로 다운로드하지 않고 '미리보기 → Excel/PDF 선택' 흐름을 연다.
+  // testDetections(업로드 영상/이미지) + defectStore(누적) 합쳐 id 중복 제거 + trade/위치 보강.
+  const handleOpenPreview = () => {
+    const test = useTestDetectionsStore.getState().detections || []
+    const main = useDefectStore.getState().defects || []
+    const seen = new Set()
+    const defects = []
+    for (const d of [...test, ...main]) {
+      if (d?.id && seen.has(d.id)) continue
+      if (d?.id) seen.add(d.id)
+      defects.push({
+        ...d,
+        trade: d.trade ?? suggestTradeFromCode(d.category_code),
+        location: d.location ?? d.location_label ?? inferInitialLocation(d.area),
+        action_note: d.action_note ?? '',
+      })
+    }
+    if (!defects.length) {
+      setError('보고서에 담을 검출 하자가 없습니다.')
+      return
+    }
+    setError(null)
+    setPreviewReport({ defects, narrative_content: content || '' })
+  }
 
   const handleGenerate = async () => {
     setContent('')
@@ -72,8 +102,22 @@ export default function ReportPanel() {
               <>📋 보고서 생성</>
             )}
           </button>
+
+          {/* 양식 내보내기 — 미리보기 → Excel/PDF 선택 다운로드 */}
+          <button
+            onClick={handleOpenPreview}
+            title="검출 하자를 양식으로 미리보기 후 Excel/PDF 다운로드"
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-emerald-700 hover:bg-emerald-600 text-white rounded transition-colors"
+          >
+            📊 양식 내보내기
+          </button>
         </div>
       </div>
+
+      {/* 양식 미리보기 → Excel/PDF 다운로드 (기존 흐름 재사용) */}
+      {previewReport && (
+        <ExcelPreviewModal report={previewReport} onClose={() => setPreviewReport(null)} />
+      )}
 
       {/* 보고서 내용 */}
       {error && (
