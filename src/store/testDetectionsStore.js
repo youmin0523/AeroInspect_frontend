@@ -32,8 +32,13 @@ const useTestDetectionsStore = create((set, get) => ({
     if (typeof data?.video_timestamp_sec !== 'number') return
     if (!data?.bbox) return
     set((state) => {
-      // 같은 id 중복 차단 (WS 재연결/StrictMode 더블 발사)
-      if (state.detections.some((d) => d.id === data.id)) return state
+      // 더블 발사(WS 재연결/StrictMode)만 차단 — (id + 같은 timestamp) 일 때만 중복으로 간주.
+      // ⚠️ id 만으로 dedup 하면, 시간적 합의(_track_video_defect)가 같은 하자에 id 를 재사용하므로
+      //    지속 검출되는 하자(예: 균열)의 2번째 키프레임부터 전부 버려져 → 첫 박스만 잠깐 뜨고 사라짐.
+      //    timestamp 까지 비교해 같은 하자의 '각 시점' 검출을 모두 타임라인에 남긴다(연속 오버레이).
+      if (state.detections.some(
+        (d) => d.id === data.id && d.video_timestamp_sec === data.video_timestamp_sec
+      )) return state
       const next = [...state.detections, data]
       // timestamp 오름차순 정렬 — 검색 시 binary search 또는 단순 filter 모두 OK.
       next.sort((a, b) => a.video_timestamp_sec - b.video_timestamp_sec)

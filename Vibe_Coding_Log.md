@@ -3297,3 +3297,11 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 기존에 이미 TemplateExportButton → ExcelPreviewModal(점검개요·상세표·사진첨부 미리보기 → Excel/PDF) + utils/templateExport.js(양식 로드+addImage) 완비돼 있었음.
 - ReportPanel: 새로 넣었던 '엑셀 직접 다운로드' 버튼을 제거하고 '📊 양식 내보내기' → ExcelPreviewModal 오픈으로 변경. testDetections(업로드 검출)+defectStore 합쳐 id 중복제거 + trade/위치 보강해 report 구성(업로드 검출도 보고서에 포함).
 - reportsApi.generateExcelReport(백엔드 /report/excel 호출 헬퍼)는 남겨둠(서버측 생성 옵션).
+
+---
+
+## 2026-06-12 (2) — 실시간 오버레이 신뢰성 + 다중영상 순차 (frontend)
+
+- testDetectionsStore.ingest: dedup 을 (id) → (id+video_timestamp_sec) 로. 시간적 합의가 같은 하자에 id 재사용 → id 만 비교하면 지속 하자(균열)의 2번째 키프레임부터 버려져 박스 사라짐. 각 시점 검출을 모두 타임라인에 보존 → 연속 오버레이.
+- useVideoAnalysisGate: 백엔드 analysis_complete 신호 1순위로 재작성. 완전분석 후 재생 → 첫 재생부터 모든 박스 일관. 휴리스틱(85%/90초)은 안전 폴백만(영상길이 비례 hardMax).
+- LiveVideoFeed: <video> onEnded → POST /test/video/next(다중영상 순차 재생) + active.analysis_complete 를 게이트에 전달.
