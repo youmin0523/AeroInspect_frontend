@@ -3312,3 +3312,13 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - ReportReadyCTA: active.analysis_complete && 검출 존재 시 영상 위 "보고서 준비됨" 배너. 클릭 → testDetections+defectStore 합쳐 id 중복제거+trade/위치 보강 → ExcelPreviewModal(미리보기→Excel/PDF). 분석→보고서 자동화 진입점.
 - LiveVideoFeed direct-video 블록에 mount.
+
+---
+
+## 2026-06-15 — 검출 체감 속도 개선: 재생 게이트 완화 (frontend)
+
+- 사용자 피드백: "검출 진행이 너무 느려". 원인 = useVideoAnalysisGate 가 영상 *전체* 분석 완료(analysis_complete)까지 재생을 막아, 긴 영상에서 첫 박스까지 수십 초 대기.
+- useVideoAnalysisGate: "전체 분석 대기" → "리드 버퍼 확보 시 즉시 재생"으로 완화. 분석 프런티어(maxTs)가 재생 헤드(0초)보다 READY_LEAD_SEC(5s) 앞서면 즉시 ready. 나머지는 재생하며 따라 분석.
+- 짧은 영상 보호: 리드 > 길이면 영영 출발 못 하므로 leadTarget = min(5s, 길이×0.5). analysis_complete 즉시통과 1순위 + hardMax 안전 폴백 유지. ready 는 한 번 true 면 유지(깜빡임 방지).
+- 트레이드오프: VLM 추론이 재생보다 많이 느리면 재생 헤드가 프런티어 추월 → 그 구간 박스 잠깐 빔(분석 따라잡으면 복구). 거슬리면 리드↑ 또는 백엔드 키프레임 병렬화로 후속 대응.
+- 검증: eslint OK, vite build OK.
