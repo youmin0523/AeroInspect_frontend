@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import useSessionStore from '../store/sessionStore.js'
 import useTestDetectionsStore from '../store/testDetectionsStore.js'
+import useThermalScreeningStore from '../store/thermalScreeningStore.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const ACTIVE_URL = `${API_BASE}/api/v1/stream/test/active`
@@ -27,9 +28,14 @@ export default function useTestActiveMedia() {
   const [active, setActive] = useState(EMPTY)
 
   useEffect(() => {
+    // 영상 교체 시 검출/스크리닝 타임라인 둘 다 동기 clear (파일명 같으면 각 store 가 noop).
+    const syncFilename = (filename) => {
+      setActiveFilename(filename)
+      useThermalScreeningStore.getState().setActiveFilename(filename)
+    }
     if (!isTestMode) {
       setActive(EMPTY)
-      setActiveFilename(null)
+      syncFilename(null)
       return
     }
     let mounted = true
@@ -40,7 +46,7 @@ export default function useTestActiveMedia() {
         const data = await res.json()
         if (!mounted) return
         setActive(data || EMPTY)
-        setActiveFilename(data?.filename || null)
+        syncFilename(data?.filename || null)
       } catch {
         // 네트워크/콜드스타트는 조용히 — 다음 tick에서 재시도
       }

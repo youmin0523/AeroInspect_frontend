@@ -41,6 +41,7 @@ import TestModeBar from '../components/dashboard/TestModeBar.jsx'
 import useDroneStore, { DRONE_CAMERA_MAP } from '../store/droneStore.js'
 import useSessionStore from '../store/sessionStore.js'
 import useDefectStore from '../store/defectStore.js'
+import useTestActiveMedia from '../hooks/useTestActiveMedia.js'
 import { toast } from '../store/toastStore.js'
 import { perfStart, perfEnd } from '../utils/perfTimer'
 import { maybeDownsampleAll } from '../utils/imageDownsample'
@@ -157,6 +158,21 @@ export default function Dashboard() {
       .then((r) => perfEnd('dashboard-warm-init', { status: r.status }))
       .catch(() => perfEnd('dashboard-warm-init', { err: true }))
   }, [])
+
+  // ── 업로드 영상 채널(rgb/thermal)에 맞춰 드론 자동 전환 ─────────────────────────
+  // Why: 백엔드가 프레임 색으로 thermal 영상을 판별하면 그 영상은 Drone2(thermal) 피드에만
+  // 노출된다. 사용자가 Drone1(rgb) 을 보고 있으면 빈 화면(No Signal)이 되므로, 새 영상이
+  // 활성화될 때 1회 해당 채널의 드론으로 자동 전환한다(이후 수동 전환은 존중 — filename 단위 가드).
+  const activeMedia = useTestActiveMedia()
+  const autoSwitchedFileRef = useRef(null)
+  useEffect(() => {
+    if (!isTestMode) { autoSwitchedFileRef.current = null; return }
+    if (activeMedia?.kind !== 'video' || !activeMedia?.filename) return
+    if (autoSwitchedFileRef.current === activeMedia.filename) return
+    autoSwitchedFileRef.current = activeMedia.filename
+    const targetDrone = activeMedia.channel === 'thermal' ? 'drone-02' : 'drone-01'
+    setSelectedDrone(targetDrone)  // 같은 드론이면 store 가 no-op
+  }, [isTestMode, activeMedia?.kind, activeMedia?.filename, activeMedia?.channel, setSelectedDrone])
 
   // ── 드래그앤드랍 업로드 + 자동 재생 ─────────────────────────
   // Why: 파일 첨부 버튼만 있으면 클릭 동선이 길고, 사용자가 영상을 화면 어디에든 떨어뜨려
