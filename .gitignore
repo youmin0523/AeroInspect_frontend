@@ -27,3 +27,6 @@ Thumbs.db
 .vite/
 
 .vercel
+
+# 로컬 내부 발표자료(PPTX) 생성 스크립트 — 앱 소스 아님, 추적 제외
+_build_deck.py
