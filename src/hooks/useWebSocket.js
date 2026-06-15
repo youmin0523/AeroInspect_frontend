@@ -24,6 +24,7 @@ import useDroneStore from '../store/droneStore.js'
 import useSessionStore from '../store/sessionStore.js'
 import useThermalStore from '../store/thermalStore.js'
 import useTestDetectionsStore from '../store/testDetectionsStore.js'
+import useThermalScreeningStore from '../store/thermalScreeningStore.js'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/v1/ws'
 const INITIAL_RETRY_DELAY = 300    // 0.3초
@@ -70,6 +71,10 @@ const messageHandlers = {
   },
   'camera.mode_changed': (data) => {
     useDroneStore.getState().syncCameraMode(data.mode)
+  },
+  // 의사색 단열 스크리닝(Drone2 영상 전용) — 보고서 미적재, 오버레이 타임라인에만 적재.
+  'thermal.screening': (data) => {
+    useThermalScreeningStore.getState().ingest(data)
   },
   'thermal.frame': (data) => {
     useThermalStore.getState().pushReading(data)

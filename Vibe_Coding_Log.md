@@ -3333,3 +3333,14 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - DefectPanel: 헤더에 "보고서 작성하기" 버튼 추가(검출 있을 때 노출). 클릭 시에만 buildReportDefects() 로 검출 합쳐 ExcelPreviewModal(미리보기→Excel/PDF) 오픈. 목록은 심각도(HIGH→MED→LOW) 우선 + 같은 등급은 video_timestamp 순으로 정렬.
 - utils/buildReportDefects.js 신설: testDetections+defectStore 합치기 + id 중복제거 + trade/위치/조치 보강 로직 공통화(ReportReadyCTA/ReportPanel 중복 정리 기반).
 - 검증: eslint OK, vite build OK.
+
+
+---
+
+## 2026-06-15 — 업로드 thermal 영상 Drone2 노출 + 의사색 단열 스크리닝 오버레이 (frontend)
+
+- LiveVideoFeed: active.channel 기준으로 thermal 영상은 Drone2(thermal) 피드에 직접재생(isDirectVideoMode = cameraMode===activeChannel), ready 게이트 3곳도 채널 일치로.
+- Dashboard: 새 활성 영상 채널에 맞춰 드론 1회 자동 전환(thermal→drone-02, filename 단위 가드).
+- thermal.screening WS 핸들러 + thermalScreeningStore(신규) + ThermalScreeningOverlay(신규, 시안 점선·단열 의심 태그). 보고서 미적재 스크리닝 전용.
+- useTestActiveMedia: 영상 교체 시 검출/스크리닝 타임라인 둘 다 동기 clear.
+- 검증: eslint 0, vite build OK.

@@ -19,6 +19,7 @@ import useSessionStore from '../../store/sessionStore.js'
 import useDefectStore from '../../store/defectStore.js'
 import ThermalOverlay from './ThermalOverlay.jsx'
 import DetectionOverlay from './DetectionOverlay.jsx'
+import ThermalScreeningOverlay from './ThermalScreeningOverlay.jsx'
 import useVideoDetectionReveal from '../../hooks/useVideoDetectionReveal.js'
 import useVideoAnalysisGate from '../../hooks/useVideoAnalysisGate.js'
 import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
@@ -54,6 +55,12 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   const cameraMode = mode ?? storeCameraMode
   const [hasError, setHasError] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
+
+  // 업로드 영상 메타 + 채널 — 백엔드가 프레임 색으로 rgb(Drone1)/thermal(Drone2) 자동 판별.
+  // 이 피드의 cameraMode 가 영상 채널과 일치할 때만 <video> 직접재생/ready 게이트를 발화 →
+  // 열화상 영상은 Drone2 에, RGB 영상은 Drone1 에만 노출.
+  const active = useTestActiveMedia()
+  const activeChannel = active?.channel === 'thermal' ? 'thermal' : 'rgb'
 
   const urls = isTestMode ? TEST_STREAM_URLS : STREAM_URLS
   const rawStreamUrl = urls[cameraMode] || STREAM_URLS.rgb
@@ -164,7 +171,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   // TEST MODE 게이트 fallback: playing 진입 후 5초 안에 첫 프레임 onLoad가 발화되지 않으면
   // 게이트를 강제로 열어 큐 잔존을 방지. 스트림 실패 시 디버깅 단서가 됨.
   useEffect(() => {
-    if (!isTestMode || !fill || cameraMode !== 'rgb') return
+    if (!isTestMode || !fill || cameraMode !== activeChannel) return
     if (testPlayState !== 'playing') return
     if (isDefectView) return
     const timer = setTimeout(() => {
@@ -174,7 +181,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
       }
     }, 5000)
     return () => clearTimeout(timer)
-  }, [isTestMode, fill, cameraMode, testPlayState, isDefectView])
+  }, [isTestMode, fill, cameraMode, activeChannel, testPlayState, isDefectView])
 
   const handleImgLoad = (e) => {
     setIsLoaded(true)
@@ -184,9 +191,9 @@ export default function LiveVideoFeed({ fill = false, mode }) {
     if (t && t.naturalWidth && t.naturalHeight) {
       setImgNatural({ w: t.naturalWidth, h: t.naturalHeight })
     }
-    // RGB 메인 큰 피드 + 라이브 스트림(하자 정지프레임 X)일 때만 게이트 열기.
-    // PIP/Thermal 등 보조 피드는 무시 — 1차 신호는 RGB 메인 1회로 충분.
-    if (isTestMode && fill && cameraMode === 'rgb' && !isDefectView) {
+    // 활성 영상 채널과 일치하는 메인 피드 + 라이브 스트림(하자 정지프레임 X)일 때만 게이트 열기.
+    // 반대 채널 PIP 등 보조 피드는 무시 — 1차 신호는 활성 채널 메인 1회로 충분.
+    if (isTestMode && fill && cameraMode === activeChannel && !isDefectView) {
       markTestMediaReady()
     }
   }
@@ -222,9 +229,8 @@ export default function LiveVideoFeed({ fill = false, mode }) {
   // ── test_mode 영상 직접재생 분기 ────────────────────
   // <video> 가 mp4 를 네이티브 디코드. 60fps 가능, Fly 1 vCPU 도 영향 없음.
   // PAUSE/STOP/RESUME 은 testPlayState 를 보고 video.play()/pause() 로 동기화.
-  const active = useTestActiveMedia()
   const isDirectVideoMode = (
-    isTestMode && active?.kind === 'video' && active?.filename && cameraMode === 'rgb'
+    isTestMode && active?.kind === 'video' && active?.filename && cameraMode === activeChannel
   )
 
   // AI 모델 로딩 중 배너 — '로딩 중'을 '오류/No Signal'과 명확히 구분.
@@ -304,7 +310,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           onEnded={handleVideoEnded}
           onLoadedMetadata={(e) => {
             setVideoDuration(e.currentTarget.duration || 0)
-            if (isTestMode && cameraMode === 'rgb') {
+            if (isTestMode && cameraMode === activeChannel) {
               markTestMediaReady()
             }
           }}
@@ -314,6 +320,14 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           frameW={active?.frame_w}
           frameH={active?.frame_h}
         />
+        {/* 열화상(Drone2) 영상이면 의사색 단열 스크리닝 오버레이 추가(보고서 미적재, 시안 점선). */}
+        {activeChannel === 'thermal' && (
+          <ThermalScreeningOverlay
+            videoRef={videoRef}
+            frameW={active?.frame_w}
+            frameH={active?.frame_h}
+          />
+        )}
         {/* 보고서는 자동 선행 생성하지 않는다 — 하자 탐지 목록의 "보고서 작성하기" 버튼으로만 생성.
             (과거: 분석 완료 시 영상 위에 "보고서 준비됨" CTA 자동 노출 → 미리 만들어진 인상) */}
         {/* 분석 먼저 → 동기화 재생: 분석 진행 중엔 진행률 오버레이, 완료되면 재생 시작 */}
