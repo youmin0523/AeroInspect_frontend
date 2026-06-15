@@ -3322,3 +3322,14 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - 짧은 영상 보호: 리드 > 길이면 영영 출발 못 하므로 leadTarget = min(5s, 길이×0.5). analysis_complete 즉시통과 1순위 + hardMax 안전 폴백 유지. ready 는 한 번 true 면 유지(깜빡임 방지).
 - 트레이드오프: VLM 추론이 재생보다 많이 느리면 재생 헤드가 프런티어 추월 → 그 구간 박스 잠깐 빔(분석 따라잡으면 복구). 거슬리면 리드↑ 또는 백엔드 키프레임 병렬화로 후속 대응.
 - 검증: eslint OK, vite build OK.
+
+---
+
+## 2026-06-15 (2) — 보고서 흐름 교정: 자동 선행 생성 제거 → 목록의 "보고서 작성하기" 버튼 (frontend)
+
+- 사용자 피드백: "영상 완료되면 하자탐지목록에 sorting되고, 보고서 작성하기 버튼으로 해당 영상(현장) 하자보고서가 작성돼야 한다. 선행 자동 분석·작성은 안 됨."
+- 문제: 분석 완료 시 영상 위에 ReportReadyCTA("보고서 준비됨") 배너가 자동 노출 → 보고서가 미리 만들어진 인상. 게다가 DefectPanel(하자 탐지 목록)엔 보고서 진입 버튼이 없었음.
+- LiveVideoFeed: ReportReadyCTA 마운트/import 제거(자동 선행 CTA 삭제).
+- DefectPanel: 헤더에 "보고서 작성하기" 버튼 추가(검출 있을 때 노출). 클릭 시에만 buildReportDefects() 로 검출 합쳐 ExcelPreviewModal(미리보기→Excel/PDF) 오픈. 목록은 심각도(HIGH→MED→LOW) 우선 + 같은 등급은 video_timestamp 순으로 정렬.
+- utils/buildReportDefects.js 신설: testDetections+defectStore 합치기 + id 중복제거 + trade/위치/조치 보강 로직 공통화(ReportReadyCTA/ReportPanel 중복 정리 기반).
+- 검증: eslint OK, vite build OK.
