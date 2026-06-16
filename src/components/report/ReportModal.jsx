@@ -19,6 +19,8 @@ import useDroneStore from '../../store/droneStore.js'
 import useDefectStore from '../../store/defectStore.js'
 import useReportsStore from '../../store/reportsStore.js'
 import { inferInitialLocation, suggestTradeFromCode } from '../../constants/trades.js'
+import { buildReportMarkdown } from '../../utils/buildReportMarkdown.js'
+import { buildThermalFindings } from '../../utils/buildThermalFindings.js'
 
 const LEVEL_NAME = {
   1: 'CAD 도면',
@@ -32,7 +34,8 @@ const LEVEL_NAME = {
 //     (사용자 수동 추가는 is_manual=true 라 grade 무관 통과)
 function toEditableDefects(raw) {
   return raw
-    .filter((d) => d.is_manual || !d.grade || d.grade === 'CONFIRMED')
+    // 열화상 영상의 RGB 오탐(source_channel=thermal)은 보고서 제외 — 단열은 별도 Thermal 섹션.
+    .filter((d) => (d.is_manual || !d.grade || d.grade === 'CONFIRMED') && d.source_channel !== 'thermal')
     .map((d) => ({
       ...d,
       trade: d.trade ?? suggestTradeFromCode(d.category_code),
@@ -100,23 +103,31 @@ export default function ReportModal() {
   const handleSave = async () => {
     setSaving(true)
     try {
+      // 백엔드 Report SoT = 마크다운 content. draft(구조화) → 마크다운(열화상 단열 섹션 포함) 생성.
+      const thermalFindings = buildThermalFindings()
+      const content = buildReportMarkdown(
+        { defects: draft.defects, thermal_findings: thermalFindings, narrative_content: draft.narrative_content },
+        {
+          siteName: draft.site_name,
+          siteUnit: draft.site_unit,
+          operatorName: draft.operator_name,
+          inspectionDate: draft.inspection_date,
+        },
+      )
       const created = await createReport({
-        site_name: draft.site_name,
-        site_unit: draft.site_unit,
-        operator_name: draft.operator_name,
-        inspection_date: draft.inspection_date,
-        level: draft.level,
-        model_source: draft.model_source,
-        session_id: draft.session_id,
-        started_at: draft.started_at,
-        finished_at: draft.finished_at,
-        status: 'draft',
-        defects: draft.defects,
-        narrative_content: draft.narrative_content,
+        title: `${draft.site_name || '현장'}${draft.site_unit ? ` ${draft.site_unit}` : ''} 하자점검 결과보고서`.trim(),
+        building_name: draft.site_name || undefined,
+        inspector_name: draft.operator_name || undefined,
+        provider: 'claude',
+        content,
+        defect_count: draft.defects.length,
+        high_count: draft.defects.filter((d) => d.severity === 'HIGH').length,
+        med_count: draft.defects.filter((d) => d.severity === 'MED').length,
+        low_count: draft.defects.filter((d) => d.severity === 'LOW').length,
       })
       setSavedId(created.id)
     } catch (err) {
-      alert('저장 실패: ' + err.message)
+      alert('저장 실패: ' + (err?.response?.data?.detail || err?.message || err))
     } finally {
       setSaving(false)
     }

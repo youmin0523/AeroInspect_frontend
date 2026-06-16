@@ -3387,3 +3387,14 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - ExcelPreviewModal: '서버 저장' 버튼 추가 → buildReportMarkdown 으로 마크다운 만들어 POST /report/save (createReport). 백엔드 모델(마크다운 content)에 맞춰 영속 — 마이그레이션 없음. 저장본은 목록/마크다운 다운로드로 thermal까지 재조회.
 - 깨진 구조화 아카이브(ReportEditor/ReportModal payload 불일치)는 손대지 않음 — 사용자 실제 흐름(보고서 작성하기→미리보기)에 저장 동작을 붙임.
 - 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 저장 보고서 아카이브 흐름 정리(마크다운 일관화) (frontend)
+
+- 백엔드 Report SoT(마크다운 content)와 프론트(구 localStorage 스키마: site_name/defects[)) 불일치 정리.
+- ReportDetail: 구조화 ReportEditor → react-markdown + remark-gfm 으로 content 렌더(열화상 단열 섹션 포함). 메타는 백엔드 필드(building_name/inspector_name/created_at/defect_count). 편집/발행 토글 제거(백엔드 PATCH/status 없음).
+- ReportsList: 백엔드 ReportSavedResponse 필드 매핑(building_name/inspector_name/created_at + defect_count/high/med/low_count). 상태 컬럼 제거, localStorage 안내문 갱신.
+- ReportModal.handleSave: 깨진 payload(defects/narrative) → 올바른 ReportSaveRequest(마크다운 content + counts, thermal 포함). 열화상 RGB 오탐(source_channel=thermal) 보고서 제외.
+- index.css: .report-markdown 표/헤딩/blockquote 스타일. remark-gfm 추가.
+- 검증: eslint 0, vite build OK, 실서버 E2E 8/8(저장→목록→조회 content thermal 포함→삭제).
