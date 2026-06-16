@@ -3378,3 +3378,12 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - DefectPanel.handleCreateReport: report.thermal_findings 포함 + 빈 가드를 (RGB 0건 && thermal 0건) 으로 — 열화상 전용 영상도 확인분 있으면 보고서 열림.
 - 미리보기(ExcelPreviewModal)·Excel(별도 '열화상 단열 스크리닝' 시트)·PDF(ReportDocument 섹션)에 Thermal 섹션 렌더. RGB 하자(source_channel=thermal 오탐)는 보고서에서 이미 제외됨.
 - 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 보고서 서버 아카이브 저장(마크다운, thermal 포함) (frontend)
+
+- buildReportMarkdown(신규): 미리보기 데이터 → 백엔드 reports.content(마크다운 SoT)용 본문 생성. 점검개요+총괄+하자상세(RGB)+열화상 단열 스크리닝(확인분)+종합의견. 열화상은 RGB와 별도 섹션.
+- ExcelPreviewModal: '서버 저장' 버튼 추가 → buildReportMarkdown 으로 마크다운 만들어 POST /report/save (createReport). 백엔드 모델(마크다운 content)에 맞춰 영속 — 마이그레이션 없음. 저장본은 목록/마크다운 다운로드로 thermal까지 재조회.
+- 깨진 구조화 아카이브(ReportEditor/ReportModal payload 불일치)는 손대지 않음 — 사용자 실제 흐름(보고서 작성하기→미리보기)에 저장 동작을 붙임.
+- 검증: eslint 0, vite build OK.

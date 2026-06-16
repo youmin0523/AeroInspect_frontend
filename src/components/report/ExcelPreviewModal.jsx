@@ -6,8 +6,10 @@
 
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon } from 'lucide-react'
+import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon, Save } from 'lucide-react'
 import { generateTemplateWorkbook, downloadWorkbook } from '../../utils/templateExport.js'
+import { buildReportMarkdown } from '../../utils/buildReportMarkdown.js'
+import { createReport } from '../../api/reportsApi.js'
 import {
   TRADE_TO_TEMPLATE_CODE, SEVERITY_TO_GRADE,
   TEMPLATE_CODE_LABELS, GRADE_LABELS,
@@ -22,6 +24,8 @@ export default function ExcelPreviewModal({ report, onClose }) {
   const { missionStartedAt, missionEndedAt } = useDroneStore()
   const [downloading, setDownloading] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [savingArchive, setSavingArchive] = useState(false)
+  const [archivedId, setArchivedId] = useState(null)
 
   const defects = report.defects ?? []
 
@@ -69,6 +73,32 @@ export default function ExcelPreviewModal({ report, onClose }) {
       alert('Excel 생성 실패: ' + err.message)
     } finally {
       setDownloading(false)
+    }
+  }
+
+  // 서버 아카이브 저장 — 백엔드 reports 테이블에 마크다운 보고서(thermal 섹션 포함)로 영속.
+  // (Report 모델 SoT = 마크다운 content. 저장본은 목록/마크다운 다운로드로 재조회 가능.)
+  const handleArchiveSave = async () => {
+    setSavingArchive(true)
+    try {
+      const content = buildReportMarkdown(report, session)
+      const created = await createReport({
+        site_id: session.siteId || undefined,
+        title: `${session.siteName ?? '현장'}${session.siteUnit ? ` ${session.siteUnit}` : ''} 하자점검 결과보고서`.trim(),
+        building_name: session.siteName || undefined,
+        inspector_name: session.operatorName || undefined,
+        provider: 'claude',
+        content,
+        defect_count: defects.length,
+        high_count: defects.filter((d) => d.severity === 'HIGH').length,
+        med_count: defects.filter((d) => d.severity === 'MED').length,
+        low_count: defects.filter((d) => d.severity === 'LOW').length,
+      })
+      setArchivedId(created?.id ?? true)
+    } catch (err) {
+      alert('보고서 저장 실패: ' + (err?.response?.data?.detail || err?.message || err))
+    } finally {
+      setSavingArchive(false)
     }
   }
 
@@ -260,6 +290,16 @@ export default function ExcelPreviewModal({ report, onClose }) {
             닫기
           </button>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleArchiveSave}
+              disabled={savingArchive || !!archivedId}
+              title="이 보고서를 서버에 저장(아카이브) — 마크다운으로 영속, 목록에서 재조회"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-700 text-white text-xs font-bold hover:bg-slate-600 transition shadow-sm disabled:opacity-60"
+            >
+              {savingArchive ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              {archivedId ? '저장됨 ✓' : savingArchive ? '저장 중...' : '서버 저장'}
+            </button>
             <button
               type="button"
               onClick={handleDownload}
