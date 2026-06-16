@@ -20,6 +20,7 @@ import useDefectStore from '../../store/defectStore.js'
 import ThermalOverlay from './ThermalOverlay.jsx'
 import DetectionOverlay from './DetectionOverlay.jsx'
 import ThermalScreeningOverlay from './ThermalScreeningOverlay.jsx'
+import GpuStatusNotice from './GpuStatusNotice.jsx'
 import useVideoDetectionReveal from '../../hooks/useVideoDetectionReveal.js'
 import useVideoAnalysisGate from '../../hooks/useVideoAnalysisGate.js'
 import useTestActiveMedia from '../../hooks/useTestActiveMedia.js'
@@ -322,11 +323,21 @@ export default function LiveVideoFeed({ fill = false, mode }) {
         />
         {/* 열화상(Drone2) 영상이면 의사색 단열 스크리닝 오버레이 추가(보고서 미적재, 시안 점선). */}
         {activeChannel === 'thermal' && (
-          <ThermalScreeningOverlay
-            videoRef={videoRef}
-            frameW={active?.frame_w}
-            frameH={active?.frame_h}
-          />
+          <>
+            <ThermalScreeningOverlay
+              videoRef={videoRef}
+              frameW={active?.frame_w}
+              frameH={active?.frame_h}
+            />
+            {/* 한계 고지(영구 범례) — 시안 점선이 '확정 하자'가 아니라 보조 스크리닝임을 명시.
+                기존엔 코드 주석에만 있던 한계를 사용자에게 노출(과신 방지). */}
+            <div className="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/80 border border-cyan-500/40">
+              <span className="w-3 h-0 border-t-2 border-dashed border-cyan-400" />
+              <span className="text-[10px] leading-tight text-cyan-200/90 font-medium break-keep">
+                단열 스크리닝(보조) · 상대 색이상 기반, 확정 진단 아님 · 보고서 미적재 · 점검자 수동 채택
+              </span>
+            </div>
+          </>
         )}
         {/* 보고서는 자동 선행 생성하지 않는다 — 하자 탐지 목록의 "보고서 작성하기" 버튼으로만 생성.
             (과거: 분석 완료 시 영상 위에 "보고서 준비됨" CTA 자동 노출 → 미리 만들어진 인상) */}
@@ -342,6 +353,8 @@ export default function LiveVideoFeed({ fill = false, mode }) {
           </div>
         )}
         {modelLoadingBanner}
+        {/* 검출이 오래 안 뜨면 GPU 추론 서버 꺼짐을 안내(무음 실패 보완). 조회 실패 시 렌더 0. */}
+        <GpuStatusNotice enabled={showModelLoading || (analysisGateEnabled && !analysisReady)} />
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900/80 border border-cyan-500/40">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
           <span className="text-[10px] font-mono tracking-wider text-cyan-200">

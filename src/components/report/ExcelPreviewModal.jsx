@@ -4,7 +4,7 @@
  *       Excel 은 브라우저 인라인 렌더 불가 → 데이터를 HTML 로 보여주고 확인 후 다운로드.
  */
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon } from 'lucide-react'
 import { generateTemplateWorkbook, downloadWorkbook } from '../../utils/templateExport.js'
 import {

@@ -24,7 +24,7 @@ const STATUS_CONFIG = {
 
 export default function Header() {
   const connectionStatus = useDroneStore((s) => s.connectionStatus)
-  const { unreadCount, chatUnreadCount, toggleDropdown, isDropdownOpen } = useNotificationStore()
+  const { unreadCount, chatUnreadCount, toggleDropdown } = useNotificationStore()
   const totalUnreadCount = unreadCount + chatUnreadCount
   const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount)
 

@@ -11,17 +11,16 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Satellite, Route, Bell } from 'lucide-react'
 import useDroneStore from '../../store/droneStore.js'
-import useDefectStore from '../../store/defectStore.js'
 import useSessionStore from '../../store/sessionStore.js'
 import useNotificationStore from '../../store/notificationStore.js'
 import MissionControl from './MissionControl.jsx'
 import NotificationDropdown from '../notification/NotificationDropdown.jsx'
 
 const STATUS_CONFIG = {
-  connected:    { label: 'LIVE',     dotClass: 'bg-accent-400 animate-pulse' },
-  connecting:   { label: 'SYNC',     dotClass: 'bg-yellow-400 animate-pulse' },
-  disconnected: { label: 'OFFLINE',  dotClass: 'bg-neutral-500' },
-  error:        { label: 'ERROR',    dotClass: 'bg-red-400 animate-pulse' },
+  connected:    { label: 'LIVE',     dotClass: 'bg-accent-400 animate-pulse', desc: '실시간 연결됨 — 드론 스트림/검출 수신 중' },
+  connecting:   { label: 'SYNC',     dotClass: 'bg-yellow-400 animate-pulse', desc: '연결 동기화 중 — 잠시만 기다려 주세요' },
+  disconnected: { label: 'OFFLINE',  dotClass: 'bg-neutral-500',              desc: '연결 끊김 — 드론 스트림에 연결돼 있지 않습니다' },
+  error:        { label: 'ERROR',    dotClass: 'bg-red-400 animate-pulse',    desc: '연결 오류 — 재연결을 시도하고 있어요' },
 }
 
 // //* [Modified Code] onMissionEnd prop — Dashboard 가 /dashboard/report 네비게이션을 주입
@@ -29,8 +28,6 @@ export default function DashboardTopBar({ onMissionEnd }) {
   const navigate = useNavigate()
   const connectionStatus = useDroneStore((s) => s.connectionStatus)
   const missionStatus = useDroneStore((s) => s.missionStatus)
-  const defects = useDefectStore((s) => s.defects)
-  const highCount = defects.filter((d) => d.severity === 'HIGH').length
   const status = STATUS_CONFIG[connectionStatus] ?? STATUS_CONFIG.disconnected
   const { unreadCount, chatUnreadCount, toggleDropdown } = useNotificationStore()
   const totalUnreadCount = unreadCount + chatUnreadCount
@@ -65,7 +62,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
         <button
           type="button"
           onClick={handleLogoClick}
-          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md shrink-0 hover:border-accent-500/50 hover:bg-neutral-900/90 transition cursor-pointer"
+          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-sm shadow-md shrink-0 hover:border-accent-500/50 hover:bg-neutral-900/90 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           title="사무실(직원 홈)으로 돌아가기"
           aria-label="사무실(직원 홈)으로 돌아가기"
         >
@@ -131,7 +128,12 @@ export default function DashboardTopBar({ onMissionEnd }) {
           Flightpaths
         </button>
 
-        <div className="hidden md:flex items-center gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-300 shadow-lg">
+        <div
+          className="hidden md:flex items-center gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-xs text-slate-300 shadow-lg cursor-help"
+          role="status"
+          title={`${status.label} — ${status.desc}`}
+          aria-label={`연결 상태: ${status.label}. ${status.desc}`}
+        >
           <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
           <span className="font-mono">{status.label}</span>
         </div>
@@ -139,7 +141,7 @@ export default function DashboardTopBar({ onMissionEnd }) {
         <div className="relative">
           <button
             type="button"
-            className="relative p-1.5 md:p-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-slate-300 hover:text-white shadow-lg transition"
+            className="relative p-1.5 md:p-2 rounded-lg bg-neutral-900/70 border border-neutral-700/60 backdrop-blur-md text-slate-300 hover:text-white shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             aria-label="알림"
             onClick={toggleDropdown}
           >

@@ -1335,7 +1335,7 @@ export default function SampleReport() {
                 <p className="text-xs text-slate-500">드론이 하자를 탐지하면<br />여기에 표시됩니다</p>
               </div>
             )}
-            {discoveredList.map((d, i) => (
+            {discoveredList.map((d) => (
               <DefectListItem
                 key={d.id}
                 defect={d}

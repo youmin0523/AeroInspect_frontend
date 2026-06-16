@@ -201,7 +201,7 @@ function fillPhotoSheet(wb, ws, defects) {
           tl: { col: 0, row: row - 1 },
           br: { col: 3, row: row - 1 + 3 },
         })
-      } catch (e) {
+      } catch {
         setCellSafe(ws, `A${row}`, '[이미지 삽입 실패]')
       }
     } else {
@@ -222,7 +222,7 @@ function fillPhotoSheet(wb, ws, defects) {
           tl: { col: 4, row: row - 1 },
           br: { col: 7, row: row - 1 + 3 },
         })
-      } catch (e) {
+      } catch {
         setCellSafe(ws, `E${row}`, '[이미지 삽입 실패]')
       }
     } else {

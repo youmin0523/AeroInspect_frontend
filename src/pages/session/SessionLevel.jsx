@@ -55,6 +55,13 @@ export default function SessionLevel() {
             '현장 정보가 없어 기본 경로만 사용 가능합니다.'
           )}
         </p>
+        {/* 레벨 개념 범례 — L1/L2/L3 뱃지가 무엇을 뜻하는지 한 줄로 설명(이전: 설명 부재). */}
+        <p className="text-xs text-gray-400 mt-2 break-keep">
+          레벨은 3D 모델의 <span className="font-semibold text-gray-600">소스·정밀도</span>를 뜻해요 —
+          <span className="font-semibold text-gray-600"> L1</span> CAD 도면(정밀) ·
+          <span className="font-semibold text-gray-600"> L2</span> 평면도 이미지 ·
+          <span className="font-semibold text-gray-600"> L3</span> 드론 실시간 스캔(도면이 없을 때)
+        </p>
       </header>
 
       {/* 사전 모델 섹션 */}

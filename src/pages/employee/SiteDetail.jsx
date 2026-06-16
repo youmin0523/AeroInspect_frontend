@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft, MapPin, Pencil, Play,
   FileText, Layers, Video,
@@ -49,7 +49,6 @@ const TABS = [
 
 export default function SiteDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const { fetchOne, update } = useSitesStore()
 
   const [site, setSite] = useState(null)

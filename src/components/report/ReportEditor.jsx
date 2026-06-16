@@ -19,6 +19,7 @@ import AddDefectDialog from './AddDefectDialog.jsx'
 import TemplateExportButton from './TemplateExportButton.jsx'
 import { LOCATION_PRESETS } from '../../constants/trades.js'
 import { suggestTrades } from '../../api/reportApi.js'
+import { toast } from '../../store/toastStore.js'
 
 // datalist 는 document scope 이므로 ReportEditor 인스턴스마다 고유 id 로 분리
 const DATALIST_ID = 'report-editor-location-presets'
@@ -29,7 +30,8 @@ export default function ReportEditor({ report, onChange, variant = 'page' }) {
   const [collapsedTrades, setCollapsedTrades] = useState(() => new Set())
   const [aiSuggestions, setAiSuggestions] = useState({})
 
-  const defects = report.defects ?? []
+  // report.defects 가 매 렌더 새 배열이면 하위 useMemo 들이 매번 재계산되므로 참조 안정화.
+  const defects = useMemo(() => report.defects ?? [], [report.defects])
 
   // 프리셋 = LOCATION_PRESETS + 현재 사용 중인 고유 값(중복 제거)
   const presets = useMemo(() => {
@@ -56,11 +58,20 @@ export default function ReportEditor({ report, onChange, variant = 'page' }) {
       if (!active) return
       const map = {}
       suggestions.forEach((s) => { map[s.id] = s.trade })
-      setAiSuggestions((prev) => ({ ...prev, ...map }))
-      const nextDefects = defects.map((d) =>
-        d.trade ? d : { ...d, trade: map[d.id] ?? '기타', trade_confidence: 0.65 }
-      )
+      // 제안에 없던 미할당은 '기타'로 채우되, 이 또한 AI 자동값임을 표시(provenance 완전 —
+      // 사용자가 직접 입력한 값과 헷갈리지 않게 모든 자동분류 행에 ✨AI 뱃지가 붙도록).
+      const applied = {}
+      const nextDefects = defects.map((d) => {
+        if (d.trade) return d
+        const t = map[d.id] ?? '기타'
+        applied[d.id] = t
+        return { ...d, trade: t, trade_confidence: 0.65 }
+      })
+      setAiSuggestions((prev) => ({ ...prev, ...applied }))
       onChange?.({ defects: nextDefects })
+      // 조용한 자동 패치를 사용자에게 알린다 — "내가 안 넣은 AI 값"을 검토하도록 유도.
+      const n = Object.keys(applied).length
+      if (n > 0) toast.info(`AI가 공종 ${n}건을 자동 분류했어요. 행의 ✨AI 표시를 확인 후 수정해 주세요.`)
     })
     return () => { active = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,8 +177,11 @@ export default function ReportEditor({ report, onChange, variant = 'page' }) {
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" /> LOW {lo}
           </span>
           {Object.keys(aiSuggestions).length > 0 && (
-            <span className="inline-flex items-center gap-1 text-indigo-700">
-              <Sparkles size={11} /> AI 제안 {Object.keys(aiSuggestions).length}건
+            <span
+              className="inline-flex items-center gap-1 text-indigo-700"
+              title="AI가 자동 분류한 공종입니다. 각 행의 ✨AI 표시를 확인하고 필요 시 수정하세요. 수정하면 표시가 사라집니다."
+            >
+              <Sparkles size={11} /> AI 공종 제안 {Object.keys(aiSuggestions).length}건 · 확인 필요
             </span>
           )}
         </div>
@@ -236,9 +250,13 @@ export default function ReportEditor({ report, onChange, variant = 'page' }) {
                         <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                           <tr>
                             <th className="px-2 py-2 text-left">이미지</th>
-                            <th className="px-2 py-2 text-left">하자 · 영역</th>
+                            <th className="px-2 py-2 text-left cursor-help" title="영역 = 하자 분류 구역(A 구조·B 단열·방수·C 마감 등). 실제 위치가 아니라 하자 유형의 분류축입니다.">
+                              하자 · 영역
+                            </th>
                             <th className="px-2 py-2 text-left">공종</th>
-                            <th className="px-2 py-2 text-left">장소</th>
+                            <th className="px-2 py-2 text-left cursor-help" title="장소 = 실제 위치(거실·방1·공용주방 등). 분류 구역(영역)과 다릅니다.">
+                              장소
+                            </th>
                             <th className="px-2 py-2 text-left">심각도</th>
                             <th className="px-2 py-2 text-left">조치 메모</th>
                             <th className="px-2 py-2 text-left">검증·삭제</th>

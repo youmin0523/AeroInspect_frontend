@@ -42,14 +42,6 @@ export default function AddDefectDialog({ presets, onAdd, onClose }) {
   const [imageWideUrl, setImageWideUrl] = useState(null)     // 원경
   const [error, setError] = useState(null)
 
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setImageDataUrl(reader.result)
-    reader.readAsDataURL(file)
-  }
-
   const handleAreaChange = (newArea) => {
     setArea(newArea)
     // 장소가 비어있거나 이전 area 의 추정값과 같으면 새 area 의 추정값으로 갱신

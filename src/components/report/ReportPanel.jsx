@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react'
+import { Info } from 'lucide-react'
 import { generateReportStream } from '../../api/reportApi.js'
 import useDefectStore from '../../store/defectStore.js'
 import useTestDetectionsStore from '../../store/testDetectionsStore.js'
@@ -122,6 +123,17 @@ export default function ReportPanel() {
       {/* 보고서 내용 */}
       {error && (
         <p className="text-xs text-red-400 mb-2">{error}</p>
+      )}
+
+      {/* AI 생성 고지 — 본문이 AI 초안이며 검토가 필요함을 명시(분쟁 대비 provenance). */}
+      {(content || isGenerating) && (
+        <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/30">
+          <Info size={12} className="mt-0.5 shrink-0 text-amber-400" />
+          <p className="text-[10px] leading-snug text-amber-200/90 break-keep">
+            {provider === 'gemini' ? 'Gemini' : 'Claude'}가 검출 데이터로 작성한 <b>초안</b>입니다 —
+            확정 진단·법적 판단이 아니며, 내보내기 전 점검자 검토가 필요합니다.
+          </p>
+        </div>
       )}
 
       {content ? (

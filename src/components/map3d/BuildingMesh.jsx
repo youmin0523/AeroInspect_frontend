@@ -397,11 +397,14 @@ function LevelThreeMesh() {
   const useReal = lidarPoints && lidarPointCount > 0
 
   // 실제 LiDAR 점 변환 (좌표축 매핑) + 색상 — 점 누적될 때마다 새 배열로
+  // lidarPointCount 는 body 에서 직접 참조하지 않지만, 점이 in-place 로 누적될 때
+  // 재계산을 트리거하는 의도적 cache-bust 의존성 → 제거 금지(제거 시 누적 렌더 정지).
   const realData = useMemo(() => {
     if (!useReal) return null
     const positions = _remapLidarPoints(lidarPoints)
     const colors = _colorsForHeight(positions, HEIGHT)
     return { positions, colors }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useReal, lidarPoints, lidarPointCount])
 
   // 폴백: 5000점 랜덤 (실제 미션 미시작 / 시뮬 안 했을 때)

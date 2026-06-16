@@ -35,7 +35,6 @@ export default function LandingHeader() {
   const mobileMenuRef = useRef(null);
   const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
 
   // 로고 클릭: 이미 "/" 경로면 Link가 리렌더를 발생시키지 않아 스크롤이 안 먹음.
   // 현재 경로가 "/"일 때만 기본 동작을 가로채 최상단까지 스무스 스크롤.

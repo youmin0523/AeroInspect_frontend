@@ -7,7 +7,7 @@
  *       - 검색, 휴대폰 번호 표시
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import useAuthStore from '../../store/authStore'
@@ -43,7 +43,8 @@ export default function AdminMembers() {
   const [newDeptName, setNewDeptName] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const headers = { Authorization: `Bearer ${token}` }
+  // token 별로 참조 안정화 — fetchData useCallback 의존성으로 안전하게 넣기 위함(매 렌더 새 객체 방지).
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -92,7 +93,7 @@ export default function AdminMembers() {
     } finally {
       setLoading(false)
     }
-  }, [token, isSuperadmin])
+  }, [headers, isSuperadmin])
 
   useEffect(() => { fetchData() }, [fetchData])
 

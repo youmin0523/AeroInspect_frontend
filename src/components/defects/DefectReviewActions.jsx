@@ -15,7 +15,7 @@
  *     동일 갱신이 WS "defect.reviewed" 이벤트로도 들어오지만 applyReviewedDefect 가 idempotent 라 안전.
  *
  *   에러 처리: 호출 실패 시 컴포넌트 내부 errorMsg state 로 인라인 빨간 배너 표시 (3초 후 자동 소실).
- *     (전역 toast 라이브러리 미도입 — 인라인 표시가 사용자 흐름 차단 0).
+ *     (에러는 액션 버튼 옆 인라인으로 흐름 차단 0. 성공은 전역 toast 로 '접수/반영' 피드백 닫힘.)
  *
  *   접근성: 모달 내부 textarea autofocus, ESC 닫기, 모바일 viewport 에서 버튼 min-h 36px 확보.
  */
@@ -25,6 +25,7 @@ import { Check, X, Flag, Loader2, RotateCcw, AlertTriangle } from 'lucide-react'
 import { reviewDefect } from '../../api/defectsApi.js'
 import useDefectStore from '../../store/defectStore.js'
 import useAuthStore from '../../store/authStore.js'
+import { toast } from '../../store/toastStore.js'
 
 const NOTE_MAX = 2000
 const ERROR_DISMISS_MS = 3000
@@ -94,6 +95,8 @@ export default function DefectReviewActions({ defect, onAfterReview }) {
       const updated = await reviewDefect(defect.id, { review_status: 'approved' })
       applyReviewedDefect(updated)
       onAfterReview?.('approved')
+      // 피드백 닫힘 — 처리됨을 알리고, 1클릭 승인이 되돌릴 수 있음을 함께 안내(승인/반려 비대칭 완화).
+      toast.success('확인 처리됐어요. 필요하면 ‘재검수’로 되돌릴 수 있어요.')
     } catch (err) {
       console.error('[DefectReviewActions] approve 실패', err)
       setErrorMsg('검수 저장에 실패했어요. 잠시 후 다시 시도해 주세요.')
@@ -121,6 +124,12 @@ export default function DefectReviewActions({ defect, onAfterReview }) {
       })
       applyReviewedDefect(updated)
       onAfterReview?.(showNoteModal)
+      // 피드백 닫힘 — 신고/반려가 어디로 가는지 사용자에게 명시(특히 오탐은 재학습 반영을 알림).
+      if (showNoteModal === 'flagged_false_positive') {
+        toast.success('오탐 신고가 접수됐어요. 모델 재학습 데이터로 반영됩니다.')
+      } else {
+        toast.success('반려 처리됐어요. 이 하자는 보고서에서 제외됩니다.')
+      }
       setShowNoteModal(null)
       setNote('')
     } catch (err) {
@@ -214,7 +223,7 @@ export default function DefectReviewActions({ defect, onAfterReview }) {
               if (busy) return
               setBusy(true)
               reviewDefect(defect.id, { review_status: 'pending' })
-                .then((u) => applyReviewedDefect(u))
+                .then((u) => { applyReviewedDefect(u); toast.info('미검수 상태로 되돌렸어요.') })
                 .catch((err) => {
                   console.error('[DefectReviewActions] re-review 실패', err)
                   setErrorMsg('재검수 전환에 실패했어요.')

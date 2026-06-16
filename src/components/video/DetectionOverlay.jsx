@@ -103,7 +103,11 @@ export default function DetectionOverlay({ videoRef, frameW, frameH }) {
         const sw = Math.max(3, Math.round(vbW * 0.0035))
         const cm = Math.max(20, Math.min(w, h) * 0.18)
         const fs = Math.max(18, Math.round(vbW * 0.018))
-        const label = `${d.category_code || ''} ${d.defect_type || ''}`.trim()
+        // 영상 위에서도 '얼마나 확실한 검출인지'를 바로 보이게 — 신뢰도(있을 때만)를 라벨에 부기.
+        // (카드 패널에만 있던 신뢰도/등급 정보의 영상-오버레이 격차 보완. labelW 는 label.length 로 자동 반영.)
+        const confPct = typeof d.confidence === 'number' ? ` ${Math.round(d.confidence * 100)}%` : ''
+        const base = `${d.category_code || ''} ${d.defect_type || ''}`.trim()
+        const label = `${base}${confPct}`
         const padX = fs * 0.6
         const padY = fs * 0.4
         const labelW = label.length * fs * 0.85 + padX * 2

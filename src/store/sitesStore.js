@@ -17,7 +17,7 @@ import {
   deleteSite,
 } from '../api/sitesApi.js'
 
-const useSitesStore = create((set, get) => ({
+const useSitesStore = create((set) => ({
   sites: [],
   loading: false,
   error: null,

@@ -44,6 +44,7 @@ import {
   Shield,
   FlaskConical,
   Cpu,
+  X,
 } from 'lucide-react'
 import useAuthStore from '../store/authStore.js'
 import useDefectStore from '../store/defectStore.js'
@@ -194,6 +195,8 @@ export default function EmployeeLanding() {
       />
 
       <main className="max-w-7xl mx-auto px-6 md:px-8 py-10 md:py-12 space-y-10 md:space-y-12">
+        <FirstRunGuide />
+
         <QuickActionsSection />
 
         <KPISection
@@ -728,6 +731,64 @@ function SummaryPill({ label, value, accent }) {
       <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</p>
       <p className="text-xl md:text-2xl font-extrabold mt-1">{value}</p>
     </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────
+   2.5 첫 진입 가이드 — 처음 사용자가 '무엇을 먼저 할지' 4단계로 안내.
+       닫으면 localStorage 로 영구 숨김(숙련자에게 방해 0).
+   ────────────────────────────────────────────────────────────── */
+
+const FIRST_RUN_GUIDE_KEY = 'aeroinspect_hub_guide_dismissed'
+
+function FirstRunGuide() {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(FIRST_RUN_GUIDE_KEY) === '1' } catch { return false }
+  })
+  if (dismissed) return null
+
+  const close = () => {
+    setDismissed(true)
+    try { localStorage.setItem(FIRST_RUN_GUIDE_KEY, '1') } catch { /* localStorage 불가 환경 무시 */ }
+  }
+
+  const steps = [
+    { icon: Upload, title: '도면·현장 준비', desc: '사전 작업에서 CAD/평면도를 올려 3D 모델을 만들어 두면 현장에서 바로 불러옵니다.' },
+    { icon: Play, title: '현장 점검 시작', desc: '‘현장 점검’ 카드로 관제 화면에 진입해 AI 하자 검출을 확인합니다.' },
+    { icon: CheckCircle, title: '하자 검수', desc: '검출 카드에서 확인·반려·오탐을 1탭으로 처리합니다.' },
+    { icon: FileText, title: '보고서 발행', desc: '검수된 하자로 Excel/PDF 보고서를 작성·발행합니다.' },
+  ]
+
+  return (
+    <section className="relative rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 md:p-6 shadow-sm">
+      <button
+        type="button"
+        onClick={close}
+        aria-label="시작 가이드 닫기"
+        title="닫기"
+        className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-blue-400"
+      >
+        <X size={16} />
+      </button>
+      <p className="text-[11px] font-bold tracking-widest text-blue-600 uppercase">Get Started</p>
+      <h2 className="text-lg md:text-xl font-bold text-slate-800 mt-1">처음이신가요? 4단계로 시작하세요</h2>
+      <p className="text-sm text-gray-500 mt-1 break-keep">아래 순서대로 진행하면 첫 점검 보고서까지 완성할 수 있어요.</p>
+      <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+        {steps.map((s, i) => {
+          const Icon = s.icon
+          return (
+            <li key={s.title} className="rounded-xl border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                <Icon size={15} className="text-blue-600 shrink-0" aria-hidden />
+                <span className="text-sm font-bold text-slate-800 break-keep">{s.title}</span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed break-keep">{s.desc}</p>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }
 

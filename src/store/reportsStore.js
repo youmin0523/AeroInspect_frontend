@@ -19,7 +19,7 @@ import {
   deleteReport,
 } from '../api/reportsApi.js'
 
-const useReportsStore = create((set, get) => ({
+const useReportsStore = create((set) => ({
   // 메모리 캐시
   reports: [],
   loading: false,

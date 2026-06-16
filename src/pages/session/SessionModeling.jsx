@@ -19,7 +19,6 @@ import { ArrowLeft, Play, Loader2, Check, Download, Ruler, AlertTriangle } from 
 import ModelingProgress from '../../components/session/ModelingProgress.jsx'
 import useSessionStore from '../../store/sessionStore.js'
 import useDroneStore from '../../store/droneStore.js'
-import usePreModelStore from '../../store/preModelStore.js'
 import { startAutonomousScan, cancelMission } from '../../api/missionApi.js'
 import { describeFloorplanError } from '../../api/floorplanApi.js'
 
@@ -36,7 +35,6 @@ export default function SessionModeling() {
   } = useSessionStore()
 
   // L3 자율비행 입력: 사전 모델이 있으면 그 walls/outline 사용 — 없으면 빈 환경 폴백
-  const loadedPreModelId = useSessionStore((s) => s.loadedPreModelId)
   const wallsData = useSessionStore((s) => s.wallsData)
   const outline = useSessionStore((s) => s.outline)
   const imageWidth = useSessionStore((s) => s.imageWidth)
@@ -86,7 +84,6 @@ export default function SessionModeling() {
       timers.forEach(clearTimeout)
       clearTimeout(done)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelSource])
 
   // 완료 후 대시보드 자동 이동
@@ -168,7 +165,7 @@ export default function SessionModeling() {
   /** 미션 취소 — 백엔드 취소 + sessionStore 취소 */
   const handleCancelDroneScan = async () => {
     if (lidarMissionId) {
-      try { await cancelMission(lidarMissionId) } catch (e) { /* noop */ }
+      try { await cancelMission(lidarMissionId) } catch { /* noop */ }
       failLidarMission('cancelled')
     }
     cancelModeling()

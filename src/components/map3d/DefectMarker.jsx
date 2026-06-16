@@ -11,7 +11,7 @@ import { useState, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import useDefectStore from '../../store/defectStore.js'
-import { getGradeStyle, getGradeLabel } from '../../utils/gradeStyle.js'
+import { getGradeStyle } from '../../utils/gradeStyle.js'
 
 const SEVERITY_COLORS = {
   HIGH: '#ef4444',
@@ -36,7 +36,7 @@ export default function DefectMarker({ defect }) {
   const z = defect.lidar_y ?? 0
 
   // 선택된 마커 펄스 애니메이션
-  useFrame((_, delta) => {
+  useFrame(() => {
     if (meshRef.current && isSelected) {
       meshRef.current.scale.setScalar(
         1.2 + Math.sin(Date.now() * 0.005) * 0.15

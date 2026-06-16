@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react'
-import { Search, FileSpreadsheet } from 'lucide-react'
+import { Search, FileSpreadsheet, RotateCcw } from 'lucide-react'
 import useDefectStore from '../../store/defectStore.js'
 import useDefects from '../../hooks/useDefects.js'
 import DefectCard from './DefectCard.jsx'
@@ -27,6 +27,9 @@ export default function DefectPanel() {
   const defects = useDefectStore((s) => s.defects)
   const filters = useDefectStore((s) => s.filters)
   const isLoading = useDefectStore((s) => s.isLoading)
+  const clearFilters = useDefectStore((s) => s.clearFilters)
+  // 활성 필터 여부 — 빈 상태에서 '필터 초기화' CTA 노출 판단.
+  const hasActiveFilter = !!(filters.severity || filters.area || filters.categoryCode || filters.grade)
 
   // 양식 미리보기 모달 (보고서 작성하기 버튼 클릭 시에만 생성 — 자동 선행 생성 안 함)
   const [previewReport, setPreviewReport] = useState(null)
@@ -92,8 +95,17 @@ export default function DefectPanel() {
         <DefectFilter />
       </div>
 
+      {/* 스크린리더용 실시간 안내 — 새 하자 검출 시 건수를 polite 로 읽어줌(시각 외 채널). */}
+      <span className="sr-only" aria-live="polite">
+        하자 {total}건 탐지됨{hasActiveFilter ? `, 필터 적용 ${filteredDefects.length}건 표시` : ''}
+      </span>
+
       {/* 하자 목록 */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+      <div
+        className="flex-1 overflow-y-auto space-y-2 pr-1"
+        role="region"
+        aria-label="하자 탐지 목록"
+      >
         {filteredDefects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-500">
             <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center mb-3">
@@ -105,6 +117,16 @@ export default function DefectPanel() {
             <span className="text-xs text-slate-500 mt-1">
               {total === 0 ? '드론 스트림에서 수신 대기 중' : `전체 ${total}건 중 필터링 결과 0건`}
             </span>
+            {/* 필터 때문에 0건이면 즉시 초기화할 수 있는 CTA — '왜 비었는지'와 '다음 행동'을 함께 제공. */}
+            {total > 0 && hasActiveFilter && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-neutral-700 text-xs font-semibold transition"
+              >
+                <RotateCcw size={12} /> 필터 초기화
+              </button>
+            )}
           </div>
         ) : (
           filteredDefects.map((defect) => (

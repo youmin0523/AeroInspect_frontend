@@ -3353,3 +3353,28 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - useVideoAnalysisGate: 분석 프런티어(maxTs)에 의사색 스크리닝(thermalScreeningStore) timestamp도 포함 → 본 검출이 드문 열화상 영상도 키프레임마다 프런티어가 전진해 즉시 재생.
 - 리드 5→3초, 안전 폴백 max(180,dur×4) → max(6,dur×0.5)로 대폭 단축(검출 0건이어도 곧 재생). 늦게 도착하는 박스는 오버레이 hold+fade가 흡수.
 - 검증: eslint 0, vite build OK. 프론트 전용(GPU VM 무관, Vercel 배포만으로 적용).
+
+
+---
+
+## 2026-06-16 (2) — UI/UX·AI/AX 보완 + ESLint 경고 전수 정리 (frontend)
+
+- 사용자 요구: "UI/UX·AI/AX 관점 분석" → "고쳐야 할 것 전부 보완". 기존 기능 보존(추가·후방호환), 조회 실패 시 조용히 degrade 원칙.
+- AI/AX
+  - GPU '무음 실패' 해소: gpuStatusStore(신규, /api/v1/admin/gpu/status 직원 권한 조회, 실패 시 fetchedOk=false 로 경고 금지) + GpuStatusNotice(신규). 검출이 오래 안 뜨면(showModelLoading 또는 분석 게이트 정체) 지연 폴링→OFF/전환중 안내. admin엔 'GPU 켜기' 링크. LiveVideoFeed direct-video 블록에 마운트.
+  - DetectionOverlay: 박스 라벨에 신뢰도 %(d.confidence 있을 때만) 부기 — 카드/영상 투명성 격차 해소.
+  - ReportEditor.suggestTrades: fallback '기타'도 aiSuggestions 에 포함(모든 자동분류 행에 ✨AI 뱃지) + 적용 시 toast.info 안내. 툴바 "AI 공종 제안 N건 · 확인 필요".
+  - LiveVideoFeed thermal: 단열 스크리닝 영구 범례(보조·확정 진단 아님·보고서 미적재·수동 채택) — 코드 주석에만 있던 한계를 UI 노출.
+  - DefectReviewActions: 승인/반려/오탐/재검수 성공 시 toast(접수·반영 안내). 승인 1클릭이 '재검수'로 되돌릴 수 있음을 알려 비대칭 완화.
+  - ReportPanel: 생성물 상단에 'AI 초안·확정 진단/법적 판단 아님·검토 필요' 고지.
+- UI/UX
+  - DefectPanel: 필터로 0건일 때 '필터 초기화' CTA. defectStore.clearFilters 가 grade 까지 초기화(기존 누락 보정 — DefectFilter 리셋 버튼과도 일관).
+  - EmployeeLanding: FirstRunGuide(신규, 4단계 첫 진입 가이드, localStorage dismiss).
+  - DashboardTopBar: 연결 상태 라벨 tooltip+aria-label(LIVE/SYNC/OFFLINE/ERROR) + 로고/알림 버튼 focus ring.
+  - SessionLevel: L1/L2/L3 의미 범례 추가.
+  - ToastContainer: ESC 로 최근 토스트 닫기 + 컨테이너 role/aria-live.
+  - DefectPanel: 검출 건수 sr-only aria-live + 목록 region 라벨.
+  - ReportEditor 테이블 헤더: '영역(분류 구역)' vs '장소(실제 위치)' tooltip.
+  - 반응형/허브 1클릭 동선: 기존 구현(모바일 세로 스택·태블릿 단계화·viewport meta·퀵액션 카드)이 견고함 확인 → 고위험 재설계 지양.
+- chore: 기존 ESLint 경고 23건 → 0. 미사용 변수/임포트 제거, catch(e)→catch, 불필요 eslint-disable 제거, hooks-deps 는 의도적 의존이면 useMemo 안정화(AdminMembers headers, ReportEditor defects)/사유 명시 disable 보존(BuildingMesh LiDAR 누적 cache-bust).
+- 검증: eslint 0, vite build OK.

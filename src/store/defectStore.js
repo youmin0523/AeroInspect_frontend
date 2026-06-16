@@ -119,9 +119,9 @@ const useDefectStore = create((set, get) => ({
       filters: { ...state.filters, [key]: value },
     })),
 
-  /** 모든 필터 초기화 */
+  /** 모든 필터 초기화 (grade 포함 — DefectFilter 리셋/빈상태 CTA 가 grade 까지 비우도록) */
   clearFilters: () =>
-    set({ filters: { severity: null, area: null, categoryCode: null } }),
+    set({ filters: { severity: null, area: null, categoryCode: null, grade: null } }),
 
   /**
    * 하자 선택 (상세 뷰 표시).

@@ -65,7 +65,6 @@ function beforeSend(event) {
     if (event.contexts) event.contexts = redact(event.contexts)
   } catch (e) {
     // 훅 자체 실패는 절대 이벤트 전송을 막지 않음 (관측 가능성 우선)
-    // eslint-disable-next-line no-console
     console.warn('[sentry] beforeSend redact failed:', e)
   }
   return event
@@ -118,7 +117,6 @@ export function initSentry() {
     return true
   } catch (e) {
     // 어떤 이유로도 앱 부팅을 막지 않는다
-    // eslint-disable-next-line no-console
     console.warn('[sentry] init failed:', e)
     return false
   }
