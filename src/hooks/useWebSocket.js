@@ -76,6 +76,10 @@ const messageHandlers = {
   'thermal.screening': (data) => {
     useThermalScreeningStore.getState().ingest(data)
   },
+  // 스크리닝 검수 결과 — 같은 세션의 다른 화면도 오버레이 마킹 즉시 반영(client_item_id 매칭).
+  'thermal.screening.reviewed': (data) => {
+    useThermalScreeningStore.getState().applyScreeningReview(data)
+  },
   'thermal.frame': (data) => {
     useThermalStore.getState().pushReading(data)
   },

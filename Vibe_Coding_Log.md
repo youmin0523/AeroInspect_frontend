@@ -3378,3 +3378,16 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
   - 반응형/허브 1클릭 동선: 기존 구현(모바일 세로 스택·태블릿 단계화·viewport meta·퀵액션 카드)이 견고함 확인 → 고위험 재설계 지양.
 - chore: 기존 ESLint 경고 23건 → 0. 미사용 변수/임포트 제거, catch(e)→catch, 불필요 eslint-disable 제거, hooks-deps 는 의도적 의존이면 useMemo 안정화(AdminMembers headers, ReportEditor defects)/사유 명시 disable 보존(BuildingMesh LiDAR 누적 cache-bust).
 - 검증: eslint 0, vite build OK.
+
+
+---
+
+## 2026-06-16 (3) — 단열 스크리닝 검수 액션 parity (frontend) (백엔드 엔드포인트 연동)
+
+- 배경: 단열 스크리닝 오버레이가 표시 전용이라 오탐 피드백 경로가 없었음. 백엔드 신규 POST /api/v1/thermal-screening/review(audit_logs 기반, 영속 테이블 없음) 연동.
+- thermalScreeningApi.js(신규): defectsApi 와 동일한 전용 axios 인스턴스(Bearer + X-Organization-Id). reviewThermalScreening(item, {review_status, review_note, filename}) — 스크리닝 정체성(ts/bbox/kind/score/client_item_id) 함께 전송.
+- thermalScreeningStore: reviews 맵 추가 + reviewItem(id, status, note) 액션(API 호출 후 로컬 reviews 갱신, 실패는 throw→컴포넌트 처리) + applyScreeningReview(WS 수신). setActiveFilename/reset 시 reviews 도 clear.
+- useWebSocket: 'thermal.screening.reviewed' 핸들러 추가 → applyScreeningReview(같은 세션 다른 화면 즉시 반영).
+- ThermalScreeningOverlay: 미검수 박스 클릭(svg pointer-events-none + g 만 auto) → 검수 모달(확인/무시/오탐, 오탐 사유 필수, ESC 닫기). 검수된 항목은 흐리게+태그(✓확인/·무시/✗오탐) 표시, 클릭 불가. 모달은 active 윈도우 밖에서도 유지되도록 svg 밖 렌더.
+- LiveVideoFeed thermal 범례에 '박스 클릭해 검수' 힌트 추가.
+- 검증: eslint 0, vite build OK.

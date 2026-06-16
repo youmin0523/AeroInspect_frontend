@@ -11,6 +11,7 @@
  */
 
 import { create } from 'zustand'
+import { reviewThermalScreening } from '../api/thermalScreeningApi.js'
 
 const MAX_ITEMS = 2000
 
@@ -18,11 +19,33 @@ const useThermalScreeningStore = create((set, get) => ({
   activeFilename: null,
   // 평탄화된 anomaly 배열. 각 원소: { id, video_timestamp_sec, frame_w, frame_h, bbox, kind, severity, score }
   items: [],
+  // 검수 상태 맵: client_item_id → { review_status, review_note } (세션 내 UI 반영 전용 — 영속 아님).
+  reviews: {},
 
-  /** active video 변경 시 호출. 파일명 같으면 noop, 다르면 clear. */
+  /** active video 변경 시 호출. 파일명 같으면 noop, 다르면 clear(검수 상태도 함께). */
   setActiveFilename: (filename) => {
     if (filename === get().activeFilename) return
-    set({ activeFilename: filename, items: [] })
+    set({ activeFilename: filename, items: [], reviews: {} })
+  },
+
+  /**
+   * 스크리닝 항목 검수 — 백엔드(audit_logs) 적재 후 로컬 reviews 갱신.
+   * 실패 시 throw → 호출 컴포넌트가 토스트/롤백 처리(낙관적 set 안 함).
+   */
+  reviewItem: async (id, review_status, review_note) => {
+    const item = get().items.find((it) => it.id === id)
+    if (!item) throw new Error('스크리닝 항목을 찾을 수 없습니다.')
+    const filename = get().activeFilename
+    const res = await reviewThermalScreening(item, { review_status, review_note, filename })
+    set((state) => ({ reviews: { ...state.reviews, [id]: { review_status, review_note } } }))
+    return res
+  },
+
+  /** WS "thermal.screening.reviewed" 수신 — 다른 화면의 검수 결과를 reviews 에 반영. */
+  applyScreeningReview: (data) => {
+    const id = data?.client_item_id
+    if (!id || !data?.review_status) return
+    set((state) => ({ reviews: { ...state.reviews, [id]: { review_status: data.review_status } } }))
   },
 
   /** WS thermal.screening 수신 — 키프레임의 anomalies 를 ts 태깅해 평탄 적재. */
@@ -50,7 +73,7 @@ const useThermalScreeningStore = create((set, get) => ({
     })
   },
 
-  reset: () => set({ activeFilename: null, items: [] }),
+  reset: () => set({ activeFilename: null, items: [], reviews: {} }),
 }))
 
 export default useThermalScreeningStore

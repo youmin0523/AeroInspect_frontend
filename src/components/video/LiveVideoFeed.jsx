@@ -334,7 +334,7 @@ export default function LiveVideoFeed({ fill = false, mode }) {
             <div className="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/80 border border-cyan-500/40">
               <span className="w-3 h-0 border-t-2 border-dashed border-cyan-400" />
               <span className="text-[10px] leading-tight text-cyan-200/90 font-medium break-keep">
-                단열 스크리닝(보조) · 상대 색이상 기반, 확정 진단 아님 · 보고서 미적재 · 점검자 수동 채택
+                단열 스크리닝(보조) · 상대 색이상 기반, 확정 진단 아님 · 보고서 미적재 · 박스 클릭해 검수(확인/무시/오탐)
               </span>
             </div>
           </>
