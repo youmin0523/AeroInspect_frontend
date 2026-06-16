@@ -3353,3 +3353,11 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - useVideoAnalysisGate: 분석 프런티어(maxTs)에 의사색 스크리닝(thermalScreeningStore) timestamp도 포함 → 본 검출이 드문 열화상 영상도 키프레임마다 프런티어가 전진해 즉시 재생.
 - 리드 5→3초, 안전 폴백 max(180,dur×4) → max(6,dur×0.5)로 대폭 단축(검출 0건이어도 곧 재생). 늦게 도착하는 박스는 오버레이 hold+fade가 흡수.
 - 검증: eslint 0, vite build OK. 프론트 전용(GPU VM 무관, Vercel 배포만으로 적용).
+
+
+---
+
+## 2026-06-16 — 보고서 미리보기 모달 좁게 뜨는 문제 수정 (frontend)
+
+- ExcelPreviewModal(보고서 작성하기 → 미리보기/Excel·PDF 다운로드)이 AI Defect Analysis 패널(backdrop-blur-sm + overflow-hidden) 안에서 렌더돼, backdrop-filter 조상이 fixed 자식의 컨테이닝 블록이 되는 CSS 규칙으로 모달이 패널 폭(~510px)에 갇히고 클립됨 → 좁게 뜨고 하단 Excel/PDF 버튼이 안 보였음.
+- createPortal(document.body)로 포털 렌더 → 뷰포트 전체(max-w-4xl)로 정상 표시, Excel/PDF 다운로드 버튼 노출. 버튼은 기존부터 존재(표시 위치 문제였음).

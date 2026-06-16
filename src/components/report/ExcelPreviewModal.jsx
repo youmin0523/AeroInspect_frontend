@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon } from 'lucide-react'
 import { generateTemplateWorkbook, downloadWorkbook } from '../../utils/templateExport.js'
 import {
@@ -71,7 +72,10 @@ export default function ExcelPreviewModal({ report, onClose }) {
     }
   }
 
-  return (
+  // createPortal: 이 모달은 backdrop-blur(=backdrop-filter)+overflow-hidden 인 AI 패널 안에서
+  // 렌더된다. backdrop-filter 가 있는 조상은 fixed 자식의 컨테이닝 블록이 되어 모달이 패널 폭에
+  // 갇히고 클립된다 → document.body 로 포털해 뷰포트 전체에 띄운다(전체화면 + 하단 버튼 노출).
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -239,7 +243,8 @@ export default function ExcelPreviewModal({ report, onClose }) {
           </div>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
