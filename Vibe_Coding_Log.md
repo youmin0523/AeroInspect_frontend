@@ -3344,3 +3344,12 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - thermal.screening WS 핸들러 + thermalScreeningStore(신규) + ThermalScreeningOverlay(신규, 시안 점선·단열 의심 태그). 보고서 미적재 스크리닝 전용.
 - useTestActiveMedia: 영상 교체 시 검출/스크리닝 타임라인 둘 다 동기 clear.
 - 검증: eslint 0, vite build OK.
+
+
+---
+
+## 2026-06-16 — 영상 분석 게이트 완화: 체감 재생속도 개선 (frontend)
+
+- useVideoAnalysisGate: 분석 프런티어(maxTs)에 의사색 스크리닝(thermalScreeningStore) timestamp도 포함 → 본 검출이 드문 열화상 영상도 키프레임마다 프런티어가 전진해 즉시 재생.
+- 리드 5→3초, 안전 폴백 max(180,dur×4) → max(6,dur×0.5)로 대폭 단축(검출 0건이어도 곧 재생). 늦게 도착하는 박스는 오버레이 hold+fade가 흡수.
+- 검증: eslint 0, vite build OK. 프론트 전용(GPU VM 무관, Vercel 배포만으로 적용).
