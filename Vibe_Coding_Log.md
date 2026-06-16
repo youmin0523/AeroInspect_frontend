@@ -3361,3 +3361,11 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 
 - ExcelPreviewModal(보고서 작성하기 → 미리보기/Excel·PDF 다운로드)이 AI Defect Analysis 패널(backdrop-blur-sm + overflow-hidden) 안에서 렌더돼, backdrop-filter 조상이 fixed 자식의 컨테이닝 블록이 되는 CSS 규칙으로 모달이 패널 폭(~510px)에 갇히고 클립됨 → 좁게 뜨고 하단 Excel/PDF 버튼이 안 보였음.
 - createPortal(document.body)로 포털 렌더 → 뷰포트 전체(max-w-4xl)로 정상 표시, Excel/PDF 다운로드 버튼 노출. 버튼은 기존부터 존재(표시 위치 문제였음).
+
+---
+
+## 2026-06-16 — 보고서 RGB 오탐 제외 + 하자 클릭→채널 드론 전환 (frontend)
+
+- buildReportDefects: 열화상 영상의 RGB 모델 검출(source_channel=thermal)은 가시광 하자 오탐이므로 보고서에서 제외. (열화상 단열 findings 는 별도 Thermal 섹션=스크리닝 확인분으로 적재 — 후속.)
+- Dashboard: 하자 카드 클릭 시 그 검출의 source_channel 드론으로 전환 → 해당 영상이 메인 피드 직접재생이 되어 LiveVideoFeed 의 seek(클릭→그 시점 화면)가 발화. 다른 드론 보던 중 클릭 시 무반응 해소.
+- 검증: eslint 0, vite build OK.
