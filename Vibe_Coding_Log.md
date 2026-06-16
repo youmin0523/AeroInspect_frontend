@@ -3369,3 +3369,12 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - buildReportDefects: 열화상 영상의 RGB 모델 검출(source_channel=thermal)은 가시광 하자 오탐이므로 보고서에서 제외. (열화상 단열 findings 는 별도 Thermal 섹션=스크리닝 확인분으로 적재 — 후속.)
 - Dashboard: 하자 카드 클릭 시 그 검출의 source_channel 드론으로 전환 → 해당 영상이 메인 피드 직접재생이 되어 LiveVideoFeed 의 seek(클릭→그 시점 화면)가 발화. 다른 드론 보던 중 클릭 시 무반응 해소.
 - 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 열화상 단열 스크리닝 → 보고서 별도 Thermal 섹션 (확인분) (frontend)
+
+- buildThermalFindings(신규): thermalScreeningStore 항목 중 점검자 '확인(confirmed)'한 것만 수집(kind/severity/score/ts/note).
+- DefectPanel.handleCreateReport: report.thermal_findings 포함 + 빈 가드를 (RGB 0건 && thermal 0건) 으로 — 열화상 전용 영상도 확인분 있으면 보고서 열림.
+- 미리보기(ExcelPreviewModal)·Excel(별도 '열화상 단열 스크리닝' 시트)·PDF(ReportDocument 섹션)에 Thermal 섹션 렌더. RGB 하자(source_channel=thermal 오탐)는 보고서에서 이미 제외됨.
+- 검증: eslint 0, vite build OK.

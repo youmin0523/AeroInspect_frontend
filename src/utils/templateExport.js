@@ -121,7 +121,37 @@ export async function generateTemplateWorkbook({ report, session }) {
     fillPhotoSheet(wb, ws2, defects)
   }
 
+  // 8) 열화상 단열 스크리닝 시트 (확인분) — RGB 하자와 별도 적재
+  const thermalFindings = report.thermal_findings ?? []
+  if (thermalFindings.length > 0) {
+    addThermalSheet(wb, thermalFindings)
+  }
+
   return wb
+}
+
+/** 열화상 단열 스크리닝(점검자 확인분) — 별도 시트로 적재 */
+function addThermalSheet(wb, findings) {
+  const ws = wb.addWorksheet('열화상 단열 스크리닝')
+  ws.columns = [
+    { header: '#', width: 6 },
+    { header: '유형', width: 24 },
+    { header: '영상시점(초)', width: 14 },
+    { header: '심각도', width: 10 },
+    { header: '비고(검수)', width: 44 },
+  ]
+  ws.getRow(1).font = { bold: true }
+  findings.forEach((t, i) => {
+    ws.addRow([
+      i + 1,
+      t.kind_label ?? '단열 의심',
+      typeof t.video_timestamp_sec === 'number' ? Number(t.video_timestamp_sec.toFixed(1)) : '',
+      t.severity ?? '',
+      t.note ?? '',
+    ])
+  })
+  ws.addRow([])
+  ws.addRow(['※ 의사색(FLIR) 상대온도 기반 단열 의심부 — 점검자 확인분. 절대 ΔT 확정 진단 아님.'])
 }
 
 /**

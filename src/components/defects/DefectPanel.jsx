@@ -16,6 +16,7 @@ import DefectCard from './DefectCard.jsx'
 import DefectFilter from './DefectFilter.jsx'
 import ExcelPreviewModal from '../report/ExcelPreviewModal.jsx'
 import { buildReportDefects } from '../../utils/buildReportDefects.js'
+import { buildThermalFindings } from '../../utils/buildThermalFindings.js'
 
 // 보고서/목록 정렬용 심각도 순위 (중대 → 경미). 같은 등급이면 검출 시점 순.
 const SEVERITY_RANK = { HIGH: 0, MED: 1, LOW: 2 }
@@ -52,8 +53,10 @@ export default function DefectPanel() {
   // 보고서 작성하기 — 클릭 시 검출(업로드+누적) 합쳐 양식 미리보기 모달을 연다.
   const handleCreateReport = () => {
     const reportDefects = buildReportDefects()
-    if (!reportDefects.length) return
-    setPreviewReport({ defects: reportDefects, narrative_content: '' })
+    // 열화상 단열은 RGB 하자와 분리 — 점검자가 '확인'한 스크리닝만 별도 Thermal 섹션으로.
+    const thermalFindings = buildThermalFindings()
+    if (!reportDefects.length && !thermalFindings.length) return
+    setPreviewReport({ defects: reportDefects, thermal_findings: thermalFindings, narrative_content: '' })
   }
 
   return (

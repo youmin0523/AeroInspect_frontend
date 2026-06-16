@@ -172,6 +172,44 @@ export default function ExcelPreviewModal({ report, onClose }) {
             )}
           </section>
 
+          {/* 열화상 단열 스크리닝 (확인분) — RGB 하자와 별도 적재 */}
+          {(report.thermal_findings?.length ?? 0) > 0 && (
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-cyan-700 mb-1">
+                열화상 단열 스크리닝 ({report.thermal_findings.length}건 · 확인분)
+              </h3>
+              <p className="text-[10px] text-gray-500 mb-2">
+                ⚠ 의사색 상대온도 기반 단열 의심부(점검자 확인). 절대 ΔT 확정 진단 아님.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border border-cyan-200">
+                  <thead className="bg-cyan-50">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left border">#</th>
+                      <th className="px-2 py-1.5 text-left border">유형</th>
+                      <th className="px-2 py-1.5 text-left border">영상시점</th>
+                      <th className="px-2 py-1.5 text-left border">심각도</th>
+                      <th className="px-2 py-1.5 text-left border">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.thermal_findings.map((t, i) => (
+                      <tr key={t.id ?? i} className="hover:bg-cyan-50/50">
+                        <td className="px-2 py-1 border">{i + 1}</td>
+                        <td className="px-2 py-1 border">{t.kind_label}</td>
+                        <td className="px-2 py-1 border font-mono">
+                          {typeof t.video_timestamp_sec === 'number' ? `${t.video_timestamp_sec.toFixed(1)}s` : '—'}
+                        </td>
+                        <td className="px-2 py-1 border font-mono">{t.severity}</td>
+                        <td className="px-2 py-1 border">{t.note || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {/* 종합 의견 미리보기 */}
           <section>
             <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-green-700 mb-2">종합 의견</h3>
