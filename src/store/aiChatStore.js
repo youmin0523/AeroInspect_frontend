@@ -134,16 +134,21 @@ const useAiChatStore = create((set, get) => ({
   },
 
   // ── 메시지 ────────────────────────────────
-  fetchMessages: async (threadId) => {
-    set({ messagesLoading: true, error: null })
+  // silent=true: 로딩 스피너/에러배너 없이 캐시만 교체 (전송 직후 권위 목록 재동기화용)
+  fetchMessages: async (threadId, { silent = false } = {}) => {
+    if (!silent) set({ messagesLoading: true, error: null })
     try {
       const data = await listMessages(threadId, { limit: 50 })
       set((s) => ({
         messagesByThread: { ...s.messagesByThread, [threadId]: data.messages || [] },
-        messagesLoading: false,
+        ...(silent ? {} : { messagesLoading: false }),
       }))
     } catch (err) {
-      set({ messagesLoading: false, error: err.message || '메시지를 불러오지 못했습니다.' })
+      if (silent) {
+        console.warn('[aiChatStore] 메시지 재동기화 실패(무시):', err)
+      } else {
+        set({ messagesLoading: false, error: err.message || '메시지를 불러오지 못했습니다.' })
+      }
     }
   },
 
@@ -211,6 +216,10 @@ const useAiChatStore = create((set, get) => ({
             abortController: null,
           }
         })
+        // 낙관적 temp-user/temp-asst 메시지를 서버 권위 목록(실제 id)으로 조용히 치환.
+        // onDone 시점엔 서버가 user+assistant 메시지를 이미 영속화(assistantMsgId 발급)했으므로
+        // 내용은 동일하고 id 만 실제 값으로 바뀐다 → 깜빡임 없이 ID 드리프트/중복 위험 제거.
+        get().fetchMessages(threadId, { silent: true })
         // 백엔드 BackgroundTask 가 LLM 5단어 제목으로 갱신 — 살짝 지연 후 한 번 더 fetchThreads
         // (보통 1~2초 내 완료). 사용자가 sidebar 에서 즉시 새 제목 보게 됨.
         setTimeout(() => {

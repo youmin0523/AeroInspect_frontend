@@ -286,7 +286,7 @@ export default function Signup() {
   // 사업자 진위 확인 — 공공데이터포털(odcloud.kr) 국세청 상태조회 API 연동
   const verifyBusiness = async () => {
     const bizNum = form.bizNumber.trim()
-    if (bizNum.length !== 10 || Number.isNaN(Number(bizNum))) {
+    if (!/^\d{10}$/.test(bizNum)) {
       setVerifyState({ status: 'error', message: '유효한 10자리 사업자등록번호를 입력해주세요.' })
       return
     }

@@ -32,7 +32,7 @@ export default function DefectEditCard({
   const sev = SEVERITY_STYLE[defect.severity] ?? SEVERITY_STYLE.MED
   const areaInfo = DEFECT_AREAS[defect.area]
   const areaColor = areaInfo?.color ?? '#64748b'
-  const confPct = ((defect.confidence ?? 0) * 100) | 0
+  const confPct = Math.round((Number(defect.confidence) || 0) * 100)
 
   return (
     <article

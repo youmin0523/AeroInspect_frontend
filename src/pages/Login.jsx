@@ -120,7 +120,7 @@ export default function Login() {
         setError('사업자등록번호를 입력해주세요.')
         return
       }
-      if (bizNum.length !== 10 || Number.isNaN(Number(bizNum))) {
+      if (!/^\d{10}$/.test(bizNum)) {
         setError('유효한 10자리 사업자등록번호를 입력해주세요.')
         return
       }
@@ -137,7 +137,9 @@ export default function Login() {
       const { access_token, refresh_token, user } = res.data
       setAuth(access_token, user, refresh_token, 'local')
       perfEnd('login', { ok: true })
-      navigate('/')
+      // 로그인 후 직원 영역으로 (조직 미가입이면 OrgRequired 가 온보딩으로 포워딩).
+      // 과거엔 '/'(공개 랜딩)으로 보내 로그인하고도 마케팅 페이지에 머물렀다.
+      navigate('/employee')
     } catch (err) {
       perfEnd('login', { ok: false })
       setError(err.response?.data?.detail || '로그인에 실패했습니다.')

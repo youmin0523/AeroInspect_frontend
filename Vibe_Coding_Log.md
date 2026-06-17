@@ -3432,3 +3432,27 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - ReportModal.handleSave: 깨진 payload(defects/narrative) → 올바른 ReportSaveRequest(마크다운 content + counts, thermal 포함). 열화상 RGB 오탐(source_channel=thermal) 보고서 제외.
 - index.css: .report-markdown 표/헤딩/blockquote 스타일. remark-gfm 추가.
 - 검증: eslint 0, vite build OK, 실서버 E2E 8/8(저장→목록→조회 content thermal 포함→삭제).
+
+---
+
+## 2026-06-17 — 검증 발견 프론트 결함 수정 (UI/실시간) (frontend)
+- SiteReportsTab: 없는 필드(site_name/defects/inspection_type/status) 참조 → 저장 보고서 스키마(building_name/*_count/inspector_name/created_at)로 정정, site_id 매칭(SiteDetail 이 siteId 전달). 백엔드 ReportSavedResponse 에 site_id 노출 연동.
+- PdfPreviewModal: cleanup 이 stale blobUrl(null) 캡처해 실제 URL 미revoke 누수 → effect 내 지역변수로 캡처 후 revoke.
+- useWebSocket: cleanup 시 핸들러(onclose 등) 제거 후 close — 인증 변경 시 옛 소켓 onclose 가 재연결 스케줄해 중복 소켓 누수되던 것 차단. notification.new/read/read_all 핸들러 배선.
+- notificationStore: WS 읽음 반영 액션(applyReadFromWs/applyReadAllFromWs) + pushNotification id dedup.
+- Chat: 미읽음 백업 폴링 5s→30s, fetchConversations() 제거 — 대화목록/미읽음 전체를 서버값으로 덮어 낙관적 업데이트가 깜빡이던 것 제거(목록 최신화는 WS 담당).
+- aiChatStore: onDone 후 fetchMessages(silent) 로 낙관적 temp-user/asst(throwaway id)를 서버 권위 목록(실제 id)으로 무깜빡임 치환 — ID 드리프트/중복 위험 제거.
+- 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-17 (2) — Low 등급 결함 정리 (frontend)
+- Login/Signup: 사업자번호 검증 Number.isNaN(Number()) → /^\d{10}$/ (공백/0x/지수 표기 통과 차단).
+- Login/OAuthCallback: 로그인 성공 후 '/'(공개 랜딩) → '/employee' 이동.
+- DroneStatusCard/DronesPanel: telemetry 숫자 필드(z/speed/battery) Number.isFinite 가드 — NaN%/undefined% 방지.
+- ThermalGraph/thermalStore: 온도값 유한성 가드(formatTemp Number.isFinite, pushReading 비유한 → null).
+- DroneMarker: 비행경로 축적을 렌더 본문 ref 변경 → useEffect 로 이동(렌더 순수성/StrictMode 안전) + 버전 카운터로 Line 갱신.
+- BuildingMesh: LiDAR <bufferGeometry> 에 포인트 수 key — 점 스트리밍 시 stale 렌더 방지(geometry remount).
+- DefectEditRow/Card: confidence 표시 `*100|0`(절단) → Math.round(Number()||0 *100).
+- SiteRecordingsTab: formatDuration 초 Math.floor(sec%60).
+- 검증: eslint 0, vite build OK.

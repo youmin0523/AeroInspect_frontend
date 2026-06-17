@@ -13,8 +13,13 @@ export default function DroneStatusCard() {
   const telemetry = useDroneStore((s) => s.telemetry)
   const connectionStatus = useDroneStore((s) => s.connectionStatus)
 
+  // WS 페이로드가 임의 형태라 숫자 필드를 방어적으로 보정 (없거나 비숫자면 0 → NaN%/undefined% 방지)
+  const z = Number.isFinite(telemetry.z) ? telemetry.z : 0
+  const speed = Number.isFinite(telemetry.speed) ? telemetry.speed : 0
+  const battery = Number.isFinite(telemetry.battery) ? telemetry.battery : 0
+
   const isActive = connectionStatus === 'connected' && telemetry.armed
-  const batteryLow = telemetry.battery < 20
+  const batteryLow = battery < 20
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -37,12 +42,12 @@ export default function DroneStatusCard() {
 
         {/* 텔레메트리 그리드 */}
         <div className="grid grid-cols-4 gap-2 mb-3">
-          <TelemetryItem label="고도" value={`${telemetry.z.toFixed(1)}m`} />
-          <TelemetryItem label="속도" value={`${telemetry.speed.toFixed(1)}m/s`} />
+          <TelemetryItem label="고도" value={`${z.toFixed(1)}m`} />
+          <TelemetryItem label="속도" value={`${speed.toFixed(1)}m/s`} />
           <TelemetryItem label="모드" value={telemetry.mode} />
           <TelemetryItem
             label="배터리"
-            value={`${telemetry.battery}%`}
+            value={`${battery}%`}
             valueClass={batteryLow ? 'text-red-400' : 'text-accent-400'}
           />
         </div>
@@ -55,7 +60,7 @@ export default function DroneStatusCard() {
                 ? 'bg-red-500'
                 : 'bg-accent-500'
             }`}
-            style={{ width: `${telemetry.battery}%` }}
+            style={{ width: `${battery}%` }}
           />
         </div>
       </div>

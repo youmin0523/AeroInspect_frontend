@@ -25,6 +25,7 @@ import useSessionStore from '../store/sessionStore.js'
 import useThermalStore from '../store/thermalStore.js'
 import useTestDetectionsStore from '../store/testDetectionsStore.js'
 import useThermalScreeningStore from '../store/thermalScreeningStore.js'
+import useNotificationStore from '../store/notificationStore.js'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/v1/ws'
 const INITIAL_RETRY_DELAY = 300    // 0.3초
@@ -106,6 +107,17 @@ const messageHandlers = {
   'slam.updated': (data) => {
     console.log('[WS] SLAM 맵 업데이트:', data?.map_id)
   },
+  // 알림 실시간 — notifications:{uid} 채널 (로그인 시 구독)
+  'notification.new': (data) => {
+    useNotificationStore.getState().pushNotification(data)
+  },
+  // 다른 탭/기기에서 읽음 처리 → 이 세션 배지도 동기화 (드리프트 방지)
+  'notification.read': (data) => {
+    if (data?.id) useNotificationStore.getState().applyReadFromWs(data.id)
+  },
+  'notification.read_all': () => {
+    useNotificationStore.getState().applyReadAllFromWs()
+  },
   'connection.established': (data) => {
     const chs = Array.isArray(data?.channels) ? data.channels.join(', ') : data?.channel
     console.log(`[WS] 연결됨: ${chs ?? '(채널 미상)'}`)
@@ -186,8 +198,18 @@ export default function useWebSocket() {
     return () => {
       mountedRef.current = false
       clearTimeout(retryTimerRef.current)
-      // token/userId 가 바뀌어 connect 가 재생성되면 기존 소켓을 닫아야 새 채널로 다시 붙는다
-      wsRef.current?.close()
+      // token/userId 가 바뀌어 connect 가 재생성되면 기존 소켓을 닫아야 새 채널로 다시 붙는다.
+      // ⚠️ 닫기 전에 핸들러를 먼저 제거: effect 재실행은 cleanup 직후 mountedRef 를 다시 true 로
+      //    돌려놓으므로, onclose 핸들러가 남아 있으면 "의도적으로 닫는" 옛 소켓이 onclose 에서
+      //    재연결을 스케줄해 중복 소켓이 누수된다. 핸들러를 끊으면 깔끔히 닫힌다.
+      const ws = wsRef.current
+      if (ws) {
+        ws.onopen = null
+        ws.onmessage = null
+        ws.onerror = null
+        ws.onclose = null
+        ws.close()
+      }
       wsRef.current = null
     }
   }, [connect])

@@ -27,9 +27,10 @@ const useThermalStore = create((set, get) => ({
         minute: '2-digit',
         second: '2-digit',
       }),
-      max: data.max ?? null,
-      min: data.min ?? null,
-      avg: data.avg ?? null,
+      // 유한 숫자만 채택 (NaN/Infinity/비숫자 → null) — 차트 축 붕괴/NaN 라인 방지
+      max: Number.isFinite(data.max) ? data.max : null,
+      min: Number.isFinite(data.min) ? data.min : null,
+      avg: Number.isFinite(data.avg) ? data.avg : null,
     }
     set((s) => {
       const updated = [...s.readings, point]

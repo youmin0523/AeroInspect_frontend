@@ -71,7 +71,7 @@ export default function DefectEditRow({
             </span>
           )}
           <span className="text-[10px] font-mono text-gray-400 truncate">
-            {defect.category_code || 'MANUAL'} · conf {(defect.confidence ?? 0) * 100 | 0}%
+            {defect.category_code || 'MANUAL'} · conf {Math.round((Number(defect.confidence) || 0) * 100)}%
           </span>
         </div>
       </td>

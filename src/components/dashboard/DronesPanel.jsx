@@ -76,7 +76,8 @@ export default function DronesPanel({ layout = 'absolute' }) {
       <div className="grid grid-cols-2 gap-2 p-2">
         {DRONES.map((d) => {
           const isSelected = selectedDroneId === d.id
-          const battery = d.id === 'drone-01' ? telemetry.battery : 83
+          const liveBattery = Number.isFinite(telemetry.battery) ? telemetry.battery : 0
+          const battery = d.id === 'drone-01' ? liveBattery : 83
           const batteryLow = battery < 20
           const Icon = d.icon
 
