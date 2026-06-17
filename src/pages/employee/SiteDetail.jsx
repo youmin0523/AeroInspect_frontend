@@ -314,7 +314,7 @@ export default function SiteDetail() {
 
           {/* 탭 콘텐츠 */}
           <div className="p-6">
-            {activeTab === 'reports' && <SiteReportsTab siteName={site.name} />}
+            {activeTab === 'reports' && <SiteReportsTab siteId={site.id} />}
             {activeTab === 'models' && <SiteModelsTab siteName={site.name} />}
             {activeTab === 'recordings' && <SiteRecordingsTab recordings={site.recordings} />}
           </div>

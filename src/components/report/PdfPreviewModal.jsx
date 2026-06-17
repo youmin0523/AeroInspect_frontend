@@ -16,6 +16,10 @@ export default function PdfPreviewModal({ document: PdfDoc, filename, onClose })
 
   useEffect(() => {
     let alive = true
+    // 이 effect 안에서 만든 URL 을 지역 변수로 잡아 cleanup 에서 그대로 revoke 한다.
+    // (state 인 blobUrl 은 effect 생성 시점엔 null 이라, cleanup 클로저가 stale null 을
+    //  캡처해 실제 URL 이 영영 revoke 되지 않던 누수 버그가 있었다.)
+    let createdUrl = null
     setLoading(true)
     setErrorMsg(null)
 
@@ -23,8 +27,9 @@ export default function PdfPreviewModal({ document: PdfDoc, filename, onClose })
       .toBlob()
       .then((b) => {
         if (!alive) return
+        createdUrl = URL.createObjectURL(b)
         setBlob(b)
-        setBlobUrl(URL.createObjectURL(b))
+        setBlobUrl(createdUrl)
         setLoading(false)
       })
       .catch((err) => {
@@ -36,7 +41,7 @@ export default function PdfPreviewModal({ document: PdfDoc, filename, onClose })
       })
     return () => {
       alive = false
-      if (blobUrl) URL.revokeObjectURL(blobUrl)
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

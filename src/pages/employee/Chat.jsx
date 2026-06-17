@@ -90,14 +90,17 @@ export default function Chat() {
     }
   }, [activeConversationId])
 
-  // 주기적 미읽음 카운트 갱신 (백업 — WS 끊겼을 때 대비, 30초 간격)
+  // 주기적 미읽음 카운트 갱신 (백업 — WS 끊겼을 때 대비, 30초 간격).
+  // ⚠️ fetchConversations()는 여기서 호출하지 않는다: 대화목록/미읽음 전체를 서버값으로
+  //    덮어써 방금 보낸 메시지·읽음 처리 같은 낙관적 업데이트가 최대 5초간 되돌아가는
+  //    깜빡임이 있었다. 목록 최신화는 WS(receiveMessage)가 담당하고, 여기선 미읽음 카운트만
+  //    백업 보정한다.
   useEffect(() => {
     const interval = setInterval(() => {
       refreshUnreadCounts()
-      fetchConversations()
-    }, 5000)
+    }, 30000)
     return () => clearInterval(interval)
-  }, [refreshUnreadCounts, fetchConversations])
+  }, [refreshUnreadCounts])
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-slate-800 font-sans antialiased">

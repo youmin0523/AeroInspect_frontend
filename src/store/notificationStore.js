@@ -107,9 +107,37 @@ const useNotificationStore = create((set, get) => ({
 
   /** WebSocket push handler — 백엔드 연결 시 useWebSocket.js 에서 호출 */
   pushNotification: (notification) => {
+    set((state) => {
+      // WS 재연결 등으로 동일 알림이 중복 수신될 수 있어 id 로 dedup
+      if (notification?.id && state.notifications.some((n) => n.id === notification.id)) {
+        return state
+      }
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + (notification?.is_read ? 0 : 1),
+      }
+    })
+  },
+
+  /** WS 읽음 이벤트 반영 (다른 탭/기기에서 읽음 → 배지 동기화, API 재호출 없음) */
+  applyReadFromWs: (id) => {
+    set((state) => {
+      const target = state.notifications.find((n) => n.id === id)
+      if (!target || target.is_read) return state  // 이미 읽음 → 중복 차감 방지
+      return {
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, is_read: true } : n
+        ),
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }
+    })
+  },
+
+  /** WS 전체읽음 이벤트 반영 */
+  applyReadAllFromWs: () => {
     set((state) => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1,
+      notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
+      unreadCount: 0,
     }))
   },
 
