@@ -454,7 +454,10 @@ function LevelThreeMesh() {
     <group>
       <FloorAndGrid sceneW={sceneW} sceneD={sceneD} floorColor="#0f172a" />
       <points>
-        <bufferGeometry>
+        {/* key 를 포인트 수에 묶어, LiDAR 점이 스트리밍 누적될 때 geometry 를 remount →
+            새 버퍼가 GPU 로 업로드된다. (동일 <bufferGeometry> 재사용 시 attribute 가
+            stale 로 남아 스캔이 멈춘 것처럼 보이던 문제 해결) */}
+        <bufferGeometry key={data.positions.length}>
           <bufferAttribute
             attach="attributes-position"
             count={data.positions.length / 3}

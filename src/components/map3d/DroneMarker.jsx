@@ -9,7 +9,7 @@
  *   좌표 매핑: 텔레메트리(X/Y 평면 + Z 고도) → Three.js(X/Z 평면 + Y 위)
  */
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Billboard, Html, Line } from '@react-three/drei'
 import useDroneStore from '../../store/droneStore.js'
 
@@ -34,27 +34,30 @@ export default function DroneMarker() {
   // ── 비행 경로 히스토리 ──
   const pathRef = useRef([])
   const lastPosRef = useRef(null)
+  // 경로가 바뀔 때 결정적으로 리렌더 (Line 갱신). pathRef 만으로는 변경이 감지 안 됨.
+  const [, bumpPath] = useState(0)
 
   // 미션 시작 시 경로 초기화
   useEffect(() => {
     if (missionStatus === 'flying') {
       pathRef.current = []
       lastPosRef.current = null
+      bumpPath((v) => v + 1)
     }
   }, [missionStatus])
 
-  // 비행 중 위치 축적
-  if (missionStatus === 'flying') {
+  // 비행 중 위치 축적 — 렌더 본문이 아닌 effect 에서 (렌더 순수성 유지, StrictMode 중복 안전).
+  // moved 가드 덕분에 effect 가 두 번 실행돼도(동일 좌표) 중복 push 되지 않는다.
+  useEffect(() => {
+    if (missionStatus !== 'flying') return
     const last = lastPosRef.current
     const moved = !last || Math.hypot(px - last[0], py - last[1], pz - last[2]) > MIN_MOVE_DIST
-    if (moved) {
-      pathRef.current.push([px, py, pz])
-      if (pathRef.current.length > MAX_PATH_POINTS) {
-        pathRef.current = pathRef.current.slice(-MAX_PATH_POINTS)
-      }
-      lastPosRef.current = [px, py, pz]
-    }
-  }
+    if (!moved) return
+    // 새 배열로 교체(불변) → <Line> 가 새 points 참조를 받아 갱신됨
+    pathRef.current = [...pathRef.current, [px, py, pz]].slice(-MAX_PATH_POINTS)
+    lastPosRef.current = [px, py, pz]
+    bumpPath((v) => v + 1)
+  }, [px, py, pz, missionStatus])
 
   const pathPoints = pathRef.current
 

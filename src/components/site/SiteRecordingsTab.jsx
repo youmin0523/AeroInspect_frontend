@@ -9,7 +9,7 @@ import { Video, Play, Download, VideoOff } from 'lucide-react'
 function formatDuration(sec) {
   if (!sec) return '—'
   const m = Math.floor(sec / 60)
-  const s = sec % 60
+  const s = Math.floor(sec % 60)
   return `${m}분 ${String(s).padStart(2, '0')}초`
 }
 

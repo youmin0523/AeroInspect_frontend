@@ -14,8 +14,8 @@ import {
 } from 'recharts'
 import useThermalData from '../../hooks/useThermalData.js'
 
-// 온도 단위 포맷
-const formatTemp = (v) => v != null ? `${v.toFixed(1)}°C` : '-'
+// 온도 단위 포맷 (유한 숫자만 — null/undefined/NaN 은 '-')
+const formatTemp = (v) => Number.isFinite(v) ? `${v.toFixed(1)}°C` : '-'
 
 export default function ThermalGraph() {
   const { readings } = useThermalData()

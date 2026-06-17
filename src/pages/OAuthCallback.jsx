@@ -45,7 +45,7 @@ export default function OAuthCallback() {
       .then((res) => {
         const { access_token, refresh_token, user } = res.data
         setAuth(access_token, user, refresh_token, provider)
-        navigate('/', { replace: true })
+        navigate('/employee', { replace: true })
       })
       .catch((err) => {
         console.error('OAuth 로그인 실패:', err)

@@ -3443,3 +3443,16 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - Chat: 미읽음 백업 폴링 5s→30s, fetchConversations() 제거 — 대화목록/미읽음 전체를 서버값으로 덮어 낙관적 업데이트가 깜빡이던 것 제거(목록 최신화는 WS 담당).
 - aiChatStore: onDone 후 fetchMessages(silent) 로 낙관적 temp-user/asst(throwaway id)를 서버 권위 목록(실제 id)으로 무깜빡임 치환 — ID 드리프트/중복 위험 제거.
 - 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-17 (2) — Low 등급 결함 정리 (frontend)
+- Login/Signup: 사업자번호 검증 Number.isNaN(Number()) → /^\d{10}$/ (공백/0x/지수 표기 통과 차단).
+- Login/OAuthCallback: 로그인 성공 후 '/'(공개 랜딩) → '/employee' 이동.
+- DroneStatusCard/DronesPanel: telemetry 숫자 필드(z/speed/battery) Number.isFinite 가드 — NaN%/undefined% 방지.
+- ThermalGraph/thermalStore: 온도값 유한성 가드(formatTemp Number.isFinite, pushReading 비유한 → null).
+- DroneMarker: 비행경로 축적을 렌더 본문 ref 변경 → useEffect 로 이동(렌더 순수성/StrictMode 안전) + 버전 카운터로 Line 갱신.
+- BuildingMesh: LiDAR <bufferGeometry> 에 포인트 수 key — 점 스트리밍 시 stale 렌더 방지(geometry remount).
+- DefectEditRow/Card: confidence 표시 `*100|0`(절단) → Math.round(Number()||0 *100).
+- SiteRecordingsTab: formatDuration 초 Math.floor(sec%60).
+- 검증: eslint 0, vite build OK.
