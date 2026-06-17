@@ -20,6 +20,9 @@ export function buildReportDefects() {
   for (const d of [...test, ...main]) {
     if (d?.id && seen.has(d.id)) continue
     if (d?.id) seen.add(d.id)
+    // 열화상 영상의 RGB 모델 검출(source_channel='thermal')은 가시광 하자(걸레받이 오염 등)
+    // 오탐이므로 보고서 제외. 열화상 단열 findings 는 별도 Thermal 섹션(스크리닝 '확인'분)으로 적재.
+    if (d?.source_channel === 'thermal') continue
     out.push({
       ...d,
       trade: d.trade ?? suggestTradeFromCode(d.category_code),

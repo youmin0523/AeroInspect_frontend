@@ -144,6 +144,37 @@ export function ReportDocument({ report }) {
           </View>
         ))}
 
+        {/* 열화상 단열 스크리닝 (확인분) — RGB 하자와 별도 섹션 */}
+        {(report.thermal_findings?.length ?? 0) > 0 && (
+          <View wrap={true}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                열화상 단열 스크리닝 · 확인분  ({report.thermal_findings.length}건)
+              </Text>
+            </View>
+            <Text style={styles.note}>
+              ⚠ 의사색(FLIR) 상대온도 기반 단열 의심부 — 점검자 확인분. 절대 ΔT 확정 진단 아님.
+            </Text>
+            {report.thermal_findings.map((t, i) => (
+              <View key={t.id ?? i} style={styles.defectRow} wrap={false}>
+                <View style={styles.defectBody}>
+                  <View style={styles.defectHeadRow}>
+                    <Text style={styles.defectTypeLabel}>{i + 1}. {t.kind_label ?? '단열 의심'}</Text>
+                    <Text style={[styles.sevBadge, sevStyle(t.severity)]}>{t.severity ?? '-'}</Text>
+                  </View>
+                  <View style={styles.defectMeta}>
+                    <Text style={styles.metaPill}>
+                      영상시점: {typeof t.video_timestamp_sec === 'number' ? `${t.video_timestamp_sec.toFixed(1)}s` : '-'}
+                    </Text>
+                    {t.score != null && <Text style={styles.metaPill}>강도 {t.score}</Text>}
+                  </View>
+                  {t.note ? <Text style={styles.note}>비고: {t.note}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.footer} fixed>
           <Text>DRONE INSPECT</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />

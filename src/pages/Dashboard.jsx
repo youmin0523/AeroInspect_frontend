@@ -133,6 +133,7 @@ export default function Dashboard() {
   const selectedDroneId = useDroneStore((s) => s.selectedDroneId)
   const cameraMode = useDroneStore((s) => s.cameraMode)
   const setSelectedDrone = useDroneStore((s) => s.setSelectedDrone)
+  const selectedDefect = useDefectStore((s) => s.selectedDefect)
   const isTestMode = useSessionStore((s) => s.isTestMode)
 
   // //* [Modified Code] 반응형 viewport — 모바일은 절대 배치 포기하고 세로 스택, 태블릿은 패널 사이즈만 축소
@@ -173,6 +174,16 @@ export default function Dashboard() {
     const targetDrone = activeMedia.channel === 'thermal' ? 'drone-02' : 'drone-01'
     setSelectedDrone(targetDrone)  // 같은 드론이면 store 가 no-op
   }, [isTestMode, activeMedia?.kind, activeMedia?.filename, activeMedia?.channel, setSelectedDrone])
+
+  // ── 하자 카드 클릭 시 그 검출의 채널 드론으로 전환 ─────────────────────────
+  // Why: 클릭→그 시점 화면(seek)은 LiveVideoFeed 에서 '그 채널 영상이 메인 피드로 직접재생 중'
+  // 일 때만 발화한다(isDirectVideoMode). 사용자가 다른 드론을 보고 있으면 클릭해도 '아무 반응
+  // 없음'. 클릭한 검출의 source_channel 드론으로 먼저 전환해 해당 영상을 메인으로 올린다.
+  useEffect(() => {
+    if (!isTestMode || !selectedDefect?.id) return
+    const targetDrone = selectedDefect.source_channel === 'thermal' ? 'drone-02' : 'drone-01'
+    setSelectedDrone(targetDrone)  // 같은 드론이면 store 가 no-op
+  }, [isTestMode, selectedDefect?.id, selectedDefect?.source_channel, setSelectedDrone])
 
   // ── 드래그앤드랍 업로드 + 자동 재생 ─────────────────────────
   // Why: 파일 첨부 버튼만 있으면 클릭 동선이 길고, 사용자가 영상을 화면 어디에든 떨어뜨려

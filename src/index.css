@@ -103,3 +103,18 @@ input::placeholder, textarea::placeholder {
   0%, 100% { opacity: 0.06; }
   50%      { opacity: 0.18; }
 }
+
+/* 저장 보고서 마크다운(react-markdown + remark-gfm) 렌더 스타일 — ReportDetail */
+.report-markdown { color: #1e293b; font-size: 14px; line-height: 1.6; word-break: keep-all; }
+.report-markdown h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 .75rem; color: #0f172a; }
+.report-markdown h2 { font-size: 1.15rem; font-weight: 700; margin: 1.25rem 0 .5rem; color: #15803d; border-bottom: 1px solid #e2e8f0; padding-bottom: .25rem; }
+.report-markdown h3 { font-size: 1rem; font-weight: 700; margin: 1rem 0 .4rem; }
+.report-markdown p { margin: .4rem 0; }
+.report-markdown ul { list-style: disc; padding-left: 1.25rem; margin: .4rem 0; }
+.report-markdown li { margin: .15rem 0; }
+.report-markdown strong { font-weight: 700; }
+.report-markdown table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: 12px; }
+.report-markdown th, .report-markdown td { border: 1px solid #e2e8f0; padding: 4px 8px; text-align: left; }
+.report-markdown th { background: #f8fafc; font-weight: 700; }
+.report-markdown blockquote { border-left: 3px solid #f59e0b; background: #fffbeb; color: #b45309; padding: .5rem .75rem; margin: .5rem 0; font-size: 12px; border-radius: 0 4px 4px 0; }
+.report-markdown code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 12px; }

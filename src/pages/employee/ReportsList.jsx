@@ -9,8 +9,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, ArrowRight, Building, FileText, Plus,
-  Trash2, CheckCircle2, Clock, AlertTriangle,
+  ArrowLeft, ArrowRight, Building, FileText, Plus, Trash2,
 } from 'lucide-react'
 import useReportsStore from '../../store/reportsStore.js'
 import RoleGuard from '../../components/common/RoleGuard.jsx'
@@ -18,12 +17,6 @@ import RoleGuard from '../../components/common/RoleGuard.jsx'
 function formatDate(ms) {
   if (!ms) return '—'
   return new Date(ms).toLocaleString('ko-KR')
-}
-
-function severityCounts(defects) {
-  const acc = { HIGH: 0, MED: 0, LOW: 0 }
-  for (const d of defects ?? []) acc[d.severity] = (acc[d.severity] || 0) + 1
-  return acc
 }
 
 export default function ReportsList() {
@@ -108,18 +101,15 @@ export default function ReportsList() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold tracking-wider">
                   <tr>
-                    <th className="text-left px-4 py-3">현장</th>
-                    <th className="text-left px-4 py-3 hidden md:table-cell">운용자</th>
-                    <th className="text-left px-4 py-3">일자</th>
+                    <th className="text-left px-4 py-3">점검 건물</th>
+                    <th className="text-left px-4 py-3 hidden md:table-cell">점검자</th>
+                    <th className="text-left px-4 py-3">저장일</th>
                     <th className="text-left px-4 py-3">하자 요약</th>
-                    <th className="text-left px-4 py-3">상태</th>
                     <th className="text-right px-4 py-3">액션</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {reports.map((r) => {
-                    const sc = severityCounts(r.defects)
-                    return (
+                  {reports.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50 transition">
                         <td className="px-4 py-3 min-w-[220px]">
                           <div className="flex items-center gap-2">
@@ -128,7 +118,7 @@ export default function ReportsList() {
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-slate-800 truncate break-keep">
-                                {r.site_name || '—'}
+                                {r.building_name || r.title || '—'}
                               </p>
                               <p className="text-[10px] text-gray-400 font-mono truncate">
                                 ID · {r.id?.slice(0, 8)}
@@ -137,38 +127,24 @@ export default function ReportsList() {
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell text-gray-600">
-                          {r.operator_name || '—'}
+                          {r.inspector_name || '—'}
                         </td>
                         <td className="px-4 py-3 text-gray-600">
-                          {r.inspection_date || '—'}
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                            저장 {formatDate(r.updated_at ?? r.created_at)}
-                          </p>
+                          {formatDate(r.created_at)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="font-bold text-slate-800">{r.defects?.length ?? 0}건</span>
+                            <span className="font-bold text-slate-800">{r.defect_count ?? 0}건</span>
                             <span className="inline-flex items-center gap-1 text-red-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> {sc.HIGH}
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> {r.high_count ?? 0}
                             </span>
                             <span className="inline-flex items-center gap-1 text-orange-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> {sc.MED}
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> {r.med_count ?? 0}
                             </span>
                             <span className="inline-flex items-center gap-1 text-yellow-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" /> {sc.LOW}
+                              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" /> {r.low_count ?? 0}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {r.status === 'published' ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700">
-                              <CheckCircle2 size={11} /> 발행
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                              <Clock size={11} /> 초안
-                            </span>
-                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex items-center gap-1">
@@ -194,23 +170,18 @@ export default function ReportsList() {
                           </div>
                         </td>
                       </tr>
-                    )
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* 간단한 안내 */}
+        {/* 안내 */}
         <section className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-900 leading-relaxed">
-          <p className="font-bold mb-1 flex items-center gap-1">
-            <AlertTriangle size={12} /> DB 연결 안내
-          </p>
           <p>
-            현재는 브라우저 localStorage 에 저장됩니다(기기별 격리). 백엔드 DB 가 연결되면
-            <code className="mx-1 px-1 py-0.5 bg-blue-100 rounded font-mono">api/reportsApi.js</code>
-            만 교체 후 이 페이지는 변경 없이 동작합니다.
+            보고서는 서버에 마크다운으로 저장됩니다(조직 단위). 상세에서 본문 확인 + 마크다운 다운로드가 가능하며,
+            열화상 단열 스크리닝 '확인분'은 보고서 내 별도 섹션으로 적재됩니다.
           </p>
         </section>
       </main>

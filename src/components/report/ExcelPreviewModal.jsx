@@ -5,8 +5,11 @@
  */
 
 import { useState } from 'react'
-import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { X, Download, FileSpreadsheet, FileText, Loader2, Image as ImageIcon, Save } from 'lucide-react'
 import { generateTemplateWorkbook, downloadWorkbook } from '../../utils/templateExport.js'
+import { buildReportMarkdown } from '../../utils/buildReportMarkdown.js'
+import { createReport } from '../../api/reportsApi.js'
 import {
   TRADE_TO_TEMPLATE_CODE, SEVERITY_TO_GRADE,
   TEMPLATE_CODE_LABELS, GRADE_LABELS,
@@ -21,6 +24,8 @@ export default function ExcelPreviewModal({ report, onClose }) {
   const { missionStartedAt, missionEndedAt } = useDroneStore()
   const [downloading, setDownloading] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [savingArchive, setSavingArchive] = useState(false)
+  const [archivedId, setArchivedId] = useState(null)
 
   const defects = report.defects ?? []
 
@@ -71,7 +76,36 @@ export default function ExcelPreviewModal({ report, onClose }) {
     }
   }
 
-  return (
+  // 서버 아카이브 저장 — 백엔드 reports 테이블에 마크다운 보고서(thermal 섹션 포함)로 영속.
+  // (Report 모델 SoT = 마크다운 content. 저장본은 목록/마크다운 다운로드로 재조회 가능.)
+  const handleArchiveSave = async () => {
+    setSavingArchive(true)
+    try {
+      const content = buildReportMarkdown(report, session)
+      const created = await createReport({
+        site_id: session.siteId || undefined,
+        title: `${session.siteName ?? '현장'}${session.siteUnit ? ` ${session.siteUnit}` : ''} 하자점검 결과보고서`.trim(),
+        building_name: session.siteName || undefined,
+        inspector_name: session.operatorName || undefined,
+        provider: 'claude',
+        content,
+        defect_count: defects.length,
+        high_count: defects.filter((d) => d.severity === 'HIGH').length,
+        med_count: defects.filter((d) => d.severity === 'MED').length,
+        low_count: defects.filter((d) => d.severity === 'LOW').length,
+      })
+      setArchivedId(created?.id ?? true)
+    } catch (err) {
+      alert('보고서 저장 실패: ' + (err?.response?.data?.detail || err?.message || err))
+    } finally {
+      setSavingArchive(false)
+    }
+  }
+
+  // createPortal: 이 모달은 backdrop-blur(=backdrop-filter)+overflow-hidden 인 AI 패널 안에서
+  // 렌더된다. backdrop-filter 가 있는 조상은 fixed 자식의 컨테이닝 블록이 되어 모달이 패널 폭에
+  // 갇히고 클립된다 → document.body 로 포털해 뷰포트 전체에 띄운다(전체화면 + 하단 버튼 노출).
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -168,6 +202,44 @@ export default function ExcelPreviewModal({ report, onClose }) {
             )}
           </section>
 
+          {/* 열화상 단열 스크리닝 (확인분) — RGB 하자와 별도 적재 */}
+          {(report.thermal_findings?.length ?? 0) > 0 && (
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-cyan-700 mb-1">
+                열화상 단열 스크리닝 ({report.thermal_findings.length}건 · 확인분)
+              </h3>
+              <p className="text-[10px] text-gray-500 mb-2">
+                ⚠ 의사색 상대온도 기반 단열 의심부(점검자 확인). 절대 ΔT 확정 진단 아님.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border border-cyan-200">
+                  <thead className="bg-cyan-50">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left border">#</th>
+                      <th className="px-2 py-1.5 text-left border">유형</th>
+                      <th className="px-2 py-1.5 text-left border">영상시점</th>
+                      <th className="px-2 py-1.5 text-left border">심각도</th>
+                      <th className="px-2 py-1.5 text-left border">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.thermal_findings.map((t, i) => (
+                      <tr key={t.id ?? i} className="hover:bg-cyan-50/50">
+                        <td className="px-2 py-1 border">{i + 1}</td>
+                        <td className="px-2 py-1 border">{t.kind_label}</td>
+                        <td className="px-2 py-1 border font-mono">
+                          {typeof t.video_timestamp_sec === 'number' ? `${t.video_timestamp_sec.toFixed(1)}s` : '—'}
+                        </td>
+                        <td className="px-2 py-1 border font-mono">{t.severity}</td>
+                        <td className="px-2 py-1 border">{t.note || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {/* 종합 의견 미리보기 */}
           <section>
             <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-green-700 mb-2">종합 의견</h3>
@@ -220,6 +292,16 @@ export default function ExcelPreviewModal({ report, onClose }) {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleArchiveSave}
+              disabled={savingArchive || !!archivedId}
+              title="이 보고서를 서버에 저장(아카이브) — 마크다운으로 영속, 목록에서 재조회"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-700 text-white text-xs font-bold hover:bg-slate-600 transition shadow-sm disabled:opacity-60"
+            >
+              {savingArchive ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              {archivedId ? '저장됨 ✓' : savingArchive ? '저장 중...' : '서버 저장'}
+            </button>
+            <button
+              type="button"
               onClick={handleDownload}
               disabled={downloading}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 transition shadow-sm disabled:opacity-60"
@@ -239,7 +321,8 @@ export default function ExcelPreviewModal({ report, onClose }) {
           </div>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

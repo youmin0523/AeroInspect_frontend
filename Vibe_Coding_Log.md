@@ -3391,3 +3391,44 @@ LandingHeader: `fixed top-0 ... z-50`. 기존 ContactModal: `fixed inset-0 z-[10
 - ThermalScreeningOverlay: 미검수 박스 클릭(svg pointer-events-none + g 만 auto) → 검수 모달(확인/무시/오탐, 오탐 사유 필수, ESC 닫기). 검수된 항목은 흐리게+태그(✓확인/·무시/✗오탐) 표시, 클릭 불가. 모달은 active 윈도우 밖에서도 유지되도록 svg 밖 렌더.
 - LiveVideoFeed thermal 범례에 '박스 클릭해 검수' 힌트 추가.
 - 검증: eslint 0, vite build OK.
+## 2026-06-16 — 보고서 미리보기 모달 좁게 뜨는 문제 수정 (frontend)
+
+- ExcelPreviewModal(보고서 작성하기 → 미리보기/Excel·PDF 다운로드)이 AI Defect Analysis 패널(backdrop-blur-sm + overflow-hidden) 안에서 렌더돼, backdrop-filter 조상이 fixed 자식의 컨테이닝 블록이 되는 CSS 규칙으로 모달이 패널 폭(~510px)에 갇히고 클립됨 → 좁게 뜨고 하단 Excel/PDF 버튼이 안 보였음.
+- createPortal(document.body)로 포털 렌더 → 뷰포트 전체(max-w-4xl)로 정상 표시, Excel/PDF 다운로드 버튼 노출. 버튼은 기존부터 존재(표시 위치 문제였음).
+
+---
+
+## 2026-06-16 — 보고서 RGB 오탐 제외 + 하자 클릭→채널 드론 전환 (frontend)
+
+- buildReportDefects: 열화상 영상의 RGB 모델 검출(source_channel=thermal)은 가시광 하자 오탐이므로 보고서에서 제외. (열화상 단열 findings 는 별도 Thermal 섹션=스크리닝 확인분으로 적재 — 후속.)
+- Dashboard: 하자 카드 클릭 시 그 검출의 source_channel 드론으로 전환 → 해당 영상이 메인 피드 직접재생이 되어 LiveVideoFeed 의 seek(클릭→그 시점 화면)가 발화. 다른 드론 보던 중 클릭 시 무반응 해소.
+- 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 열화상 단열 스크리닝 → 보고서 별도 Thermal 섹션 (확인분) (frontend)
+
+- buildThermalFindings(신규): thermalScreeningStore 항목 중 점검자 '확인(confirmed)'한 것만 수집(kind/severity/score/ts/note).
+- DefectPanel.handleCreateReport: report.thermal_findings 포함 + 빈 가드를 (RGB 0건 && thermal 0건) 으로 — 열화상 전용 영상도 확인분 있으면 보고서 열림.
+- 미리보기(ExcelPreviewModal)·Excel(별도 '열화상 단열 스크리닝' 시트)·PDF(ReportDocument 섹션)에 Thermal 섹션 렌더. RGB 하자(source_channel=thermal 오탐)는 보고서에서 이미 제외됨.
+- 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 보고서 서버 아카이브 저장(마크다운, thermal 포함) (frontend)
+
+- buildReportMarkdown(신규): 미리보기 데이터 → 백엔드 reports.content(마크다운 SoT)용 본문 생성. 점검개요+총괄+하자상세(RGB)+열화상 단열 스크리닝(확인분)+종합의견. 열화상은 RGB와 별도 섹션.
+- ExcelPreviewModal: '서버 저장' 버튼 추가 → buildReportMarkdown 으로 마크다운 만들어 POST /report/save (createReport). 백엔드 모델(마크다운 content)에 맞춰 영속 — 마이그레이션 없음. 저장본은 목록/마크다운 다운로드로 thermal까지 재조회.
+- 깨진 구조화 아카이브(ReportEditor/ReportModal payload 불일치)는 손대지 않음 — 사용자 실제 흐름(보고서 작성하기→미리보기)에 저장 동작을 붙임.
+- 검증: eslint 0, vite build OK.
+
+---
+
+## 2026-06-16 — 저장 보고서 아카이브 흐름 정리(마크다운 일관화) (frontend)
+
+- 백엔드 Report SoT(마크다운 content)와 프론트(구 localStorage 스키마: site_name/defects[)) 불일치 정리.
+- ReportDetail: 구조화 ReportEditor → react-markdown + remark-gfm 으로 content 렌더(열화상 단열 섹션 포함). 메타는 백엔드 필드(building_name/inspector_name/created_at/defect_count). 편집/발행 토글 제거(백엔드 PATCH/status 없음).
+- ReportsList: 백엔드 ReportSavedResponse 필드 매핑(building_name/inspector_name/created_at + defect_count/high/med/low_count). 상태 컬럼 제거, localStorage 안내문 갱신.
+- ReportModal.handleSave: 깨진 payload(defects/narrative) → 올바른 ReportSaveRequest(마크다운 content + counts, thermal 포함). 열화상 RGB 오탐(source_channel=thermal) 보고서 제외.
+- index.css: .report-markdown 표/헤딩/blockquote 스타일. remark-gfm 추가.
+- 검증: eslint 0, vite build OK, 실서버 E2E 8/8(저장→목록→조회 content thermal 포함→삭제).
